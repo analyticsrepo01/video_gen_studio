@@ -1,0 +1,3294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Generation Studio</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 8px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 8px;
+        }
+
+        .tab {
+            padding: 10px 14px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 13px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            min-width: fit-content;
+        }
+
+        .tab:hover {
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: rgba(102, 126, 234, 0.15);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .file-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #e1e1e1;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .file-preview {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 2px solid #e1e1e1;
+        }
+
+        .file-details-container {
+            flex: 1;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+        }
+
+        .modal-video {
+            max-width: 90vw;
+            max-height: 90vh;
+        }
+
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            opacity: 0.7;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .file-details {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .video-selection {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .selected-videos {
+            margin-top: 10px;
+        }
+
+        .selected-video {
+            background: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .remove-video {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .drag-drop-area {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            background: #f8f9ff;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+
+        .drag-drop-area.drag-over {
+            border-color: #4CAF50;
+            background: #f0fff0;
+        }
+
+        .sortable-list {
+            min-height: 100px;
+            padding: 10px;
+            border: 2px dashed #e1e1e1;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .sortable-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 5px 0;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .sortable-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .sortable-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        .drag-handle {
+            color: #999;
+            cursor: grab;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .frame-extraction-tools {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Video Generation Studio</h1>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('video-gen')">Video Generation</button>
+            <button class="tab" onclick="showTab('image-gen')">Image Generation</button>
+            <button class="tab" onclick="showTab('image-edit')">Image Editing</button>
+            <button class="tab" onclick="showTab('text-overlay')">Text Overlay</button>
+            <button class="tab" onclick="showTab('style-mixing')">Style Mixing</button>
+            <button class="tab" onclick="showTab('video-from-image')">Video from Image</button>
+            <button class="tab" onclick="showTab('video-tools')">Video Tools</button>
+            <button class="tab" onclick="showTab('upload')">Upload Files</button>
+            <button class="tab" onclick="showTab('browse')">Browse Files</button>
+            <button class="tab" onclick="showTab('guidelines')">Guidelines</button>
+            <button class="tab" onclick="showTab('prompt-refine')">Prompt Refinement</button>
+            <button class="tab" onclick="showTab('config')">Configuration</button>
+        </div>
+
+        <!-- Video Generation Tab -->
+        <div id="video-gen" class="tab-content active">
+            <h2>Generate Video from Text</h2>
+            <form id="video-form">
+                <div class="form-group">
+                    <label for="video-prompt">Video Prompt:</label>
+                    <textarea id="video-prompt" placeholder="Describe the video you want to generate..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="video-negative-prompt">Negative Prompt (Optional):</label>
+                    <textarea id="video-negative-prompt" placeholder="Describe what you DON'T want in the video (e.g., ugly, low quality, static, weird physics)"></textarea>
+                    <small style="color: #666; font-size: 12px;">Use negative prompts to exclude unwanted elements from your video</small>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label for="aspect-ratio">Aspect Ratio:</label>
+                        <select id="aspect-ratio" required>
+                            <option value="9:16">9:16 (Vertical)</option>
+                            <option value="16:9">16:9 (Horizontal)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="video-resolution">Resolution:</label>
+                        <select id="video-resolution" required>
+                            <option value="720p">720p (HD)</option>
+                            <option value="1080p" selected>1080p (Full HD)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">Generate Video</button>
+            </form>
+            <div id="video-loading" class="loading">
+                <div class="spinner"></div>
+                <p>Generating video... This may take several minutes.</p>
+            </div>
+            <div id="video-result" class="result"></div>
+        </div>
+
+        <!-- Image Generation Tab -->
+        <div id="image-gen" class="tab-content">
+            <h2>Generate Image from Text</h2>
+            <form id="image-form">
+                <div class="form-group">
+                    <label for="image-prompt">Image Prompt:</label>
+                    <textarea id="image-prompt" placeholder="Describe the image you want to generate..." required></textarea>
+                </div>
+                <button type="submit" class="btn">Generate Image</button>
+            </form>
+            <div id="image-loading" class="loading">
+                <div class="spinner"></div>
+                <p>Generating image...</p>
+            </div>
+            <div id="image-result" class="result"></div>
+        </div>
+
+        <!-- Image Editing Tab -->
+        <div id="image-edit" class="tab-content">
+            <h2>Edit Image with AI</h2>
+            <div class="grid">
+                <div>
+                    <form id="edit-form">
+                        <div class="form-group">
+                            <label for="image-path">Image Path:</label>
+                            <input type="text" id="image-path" placeholder="Path to image file..." required onchange="previewSelectedImage()">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-prompt">Edit Instructions:</label>
+                            <textarea id="edit-prompt" placeholder="Describe how you want to edit the image..." required></textarea>
+                        </div>
+
+                        <div class="form-group" style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #17a2b8;">
+                            <label style="display: flex; align-items: center; gap: 10px; font-weight: 600; color: #17a2b8;">
+                                <input type="checkbox" id="enable-validation" onchange="toggleValidationOptions()">
+                                🤖 Enable AI Validation & Auto-Enhancement
+                            </label>
+                            <small style="color: #666; font-size: 12px; margin-top: 5px; display: block;">
+                                AI will validate the edit result and automatically retry with improved prompts if needed
+                            </small>
+
+                            <div id="validation-options" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e1e1e1;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label for="max-retries" style="font-size: 14px;">Max Retries:</label>
+                                        <select id="max-retries">
+                                            <option value="3">3 attempts</option>
+                                            <option value="5" selected>5 attempts</option>
+                                            <option value="7">7 attempts</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label for="confidence-threshold" style="font-size: 14px;">Success Threshold:</label>
+                                        <select id="confidence-threshold">
+                                            <option value="0.6">60% confidence</option>
+                                            <option value="0.7" selected>70% confidence</option>
+                                            <option value="0.8">80% confidence</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style="background: #e3f2fd; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                                    <p style="margin: 0; font-size: 12px; color: #1976d2;">
+                                        <strong>How it works:</strong> AI will check if the edit matches your request. If not, it will improve your prompt and try again automatically.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn">Edit Image</button>
+                    </form>
+                    <div id="edit-loading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Processing image edit...</p>
+                    </div>
+                    <div id="edit-result" class="result"></div>
+                </div>
+                <div>
+                    <h3>Image Preview</h3>
+                    <div id="edit-image-preview" style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; min-height: 200px;">
+                        <p style="color: #666; margin-top: 80px;">Enter image path to see preview</p>
+                    </div>
+                    <h3 style="margin-top: 20px;">Available Images</h3>
+                    <div id="edit-images-list" class="file-list" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text Overlay Tab -->
+        <div id="text-overlay" class="tab-content">
+            <h2>📝 Add Text to Images</h2>
+            <div class="grid">
+                <div>
+                    <form id="text-overlay-form">
+                        <div class="form-group">
+                            <label for="overlay-image-path">Image Path:</label>
+                            <input type="text" id="overlay-image-path" placeholder="Path to image file..." required onchange="loadImageForOverlay()">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="overlay-text">Text Content:</label>
+                            <textarea id="overlay-text" placeholder="Enter your text here..." required oninput="updateTextPreview()"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Quick Position:</label>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-width: 200px;">
+                                <button type="button" class="btn btn-small" onclick="setTextPosition('top-left')">↖️</button>
+                                <button type="button" class="btn btn-small" onclick="setTextPosition('top-center')">⬆️</button>
+                                <button type="button" class="btn btn-small" onclick="setTextPosition('top-right')">↗️</button>
+                                <button type="button" class="btn btn-small" onclick="setTextPosition('center-left')">⬅️</button>
+                                <button type="button" class="btn btn-small" onclick="setTextPosition('center')">⭕</button>
+                                <button type="button" class="btn btn-small" onclick="setTextPosition('center-right')">➡️</button>
+                                <button type="button" class="btn btn-small" onclick="setTextPosition('bottom-left')">↙️</button>
+                                <button type="button" class="btn btn-small" onclick="setTextPosition('bottom-center')">⬇️</button>
+                                <button type="button" class="btn btn-small" onclick="setTextPosition('bottom-right')">↘️</button>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label for="text-font-family">Font:</label>
+                                <select id="text-font-family" onchange="updateTextPreview()">
+                                    <option value="Arial, sans-serif">Arial</option>
+                                    <option value="Georgia, serif">Georgia</option>
+                                    <option value="'Times New Roman', serif">Times New Roman</option>
+                                    <option value="'Courier New', monospace">Courier New</option>
+                                    <option value="Helvetica, sans-serif">Helvetica</option>
+                                    <option value="Impact, sans-serif">Impact</option>
+                                    <option value="'Comic Sans MS', cursive">Comic Sans</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="text-font-size">Font Size:</label>
+                                <input type="range" id="text-font-size" min="12" max="120" value="24" oninput="updateTextPreview()">
+                                <span id="font-size-display">24px</span>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label for="text-color">Text Color:</label>
+                                <input type="color" id="text-color" value="#ffffff" onchange="updateTextPreview()">
+                            </div>
+                            <div class="form-group">
+                                <label for="text-weight">Font Weight:</label>
+                                <select id="text-weight" onchange="updateTextPreview()">
+                                    <option value="normal">Normal</option>
+                                    <option value="bold">Bold</option>
+                                    <option value="lighter">Light</option>
+                                    <option value="bolder">Extra Bold</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="text-background" onchange="toggleTextBackground()">
+                                Add Background Box
+                            </label>
+                            <div id="background-options" style="display: none; margin-top: 10px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div>
+                                        <label for="bg-color" style="font-size: 14px;">Background Color:</label>
+                                        <input type="color" id="bg-color" value="#000000" onchange="updateTextPreview()">
+                                    </div>
+                                    <div>
+                                        <label for="bg-opacity" style="font-size: 14px;">Opacity:</label>
+                                        <input type="range" id="bg-opacity" min="0" max="100" value="70" oninput="updateTextPreview()">
+                                        <span id="bg-opacity-display">70%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="text-shadow" onchange="toggleTextShadow()">
+                                Add Text Shadow
+                            </label>
+                            <div id="shadow-options" style="display: none; margin-top: 10px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div>
+                                        <label for="shadow-color" style="font-size: 14px;">Shadow Color:</label>
+                                        <input type="color" id="shadow-color" value="#000000" onchange="updateTextPreview()">
+                                    </div>
+                                    <div>
+                                        <label for="shadow-blur" style="font-size: 14px;">Blur:</label>
+                                        <input type="range" id="shadow-blur" min="0" max="20" value="2" oninput="updateTextPreview()">
+                                        <span id="shadow-blur-display">2px</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn">Apply Text Overlay</button>
+                    </form>
+
+                    <div id="overlay-loading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Processing text overlay...</p>
+                    </div>
+                    <div id="overlay-result" class="result"></div>
+                </div>
+
+                <div>
+                    <h3>Preview</h3>
+                    <div id="text-preview-container" style="position: relative; max-width: 100%; border: 2px solid #e1e1e1; border-radius: 8px; background: #f8f9fa; min-height: 300px; overflow: hidden;">
+                        <div id="no-image-message" style="display: flex; align-items: center; justify-content: center; height: 300px; color: #666;">
+                            Select an image to start adding text
+                        </div>
+                        <img id="preview-image" style="display: none; max-width: 100%; height: auto;" />
+                        <div id="preview-text" style="display: none; position: absolute; cursor: move; user-select: none; padding: 5px; border: 2px dashed #667eea; background: rgba(255,255,255,0.1);">
+                            Sample Text
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <p style="font-size: 14px; color: #666;">
+                            💡 <strong>Tip:</strong> Click and drag the text in the preview to position it exactly where you want.
+                        </p>
+                    </div>
+
+                    <h3 style="margin-top: 20px;">Available Images</h3>
+                    <div id="overlay-images-list" class="file-list" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Style Mixing Tab -->
+        <div id="style-mixing" class="tab-content">
+            <h2>🎨 Image Style Mixing</h2>
+            <div class="grid">
+                <div>
+                    <form id="style-mixing-form">
+                        <div class="form-group">
+                            <label for="mixing-prompt">Style Combination Prompt:</label>
+                            <textarea id="mixing-prompt" placeholder="Describe how you want to combine the styles... e.g., 'Combine the lighting from image 1, the color palette from image 2, and the composition style from image 3'" required style="height: 100px;"></textarea>
+                            <small style="color: #666; font-size: 12px;">
+                                Be specific about which elements you want from each image (lighting, colors, composition, texture, mood, etc.)
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Style Mixing Mode:</label>
+                            <select id="mixing-mode">
+                                <option value="analyze">Analyze & Describe Combined Style</option>
+                                <option value="generate">Generate New Image with Mixed Style</option>
+                                <option value="guide">Create Style Guide from References</option>
+                            </select>
+                            <small style="color: #666; font-size: 12px;">
+                                Choose how you want to use the style combination
+                            </small>
+                        </div>
+
+                        <div class="form-group" style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #28a745;">
+                            <label style="font-weight: 600; color: #28a745; margin-bottom: 10px; display: block;">
+                                🖼️ Selected Reference Images ({<span id="selected-count">0</span>}/5)
+                            </label>
+                            <div id="selected-images-preview" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-bottom: 15px;">
+                                <div id="no-images-selected" style="grid-column: 1 / -1; text-align: center; color: #666; padding: 20px; border: 2px dashed #ddd; border-radius: 6px;">
+                                    Select 2-5 images from the gallery below
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button type="button" class="btn btn-small" onclick="clearSelectedImages()" style="background: #6c757d;">Clear All</button>
+                                <button type="button" class="btn btn-small" onclick="randomSelectImages()" style="background: #17a2b8;">Random Select</button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn">🎨 Mix Styles</button>
+                    </form>
+
+                    <div id="mixing-loading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Analyzing and mixing image styles...</p>
+                    </div>
+                    <div id="mixing-result" class="result"></div>
+                </div>
+
+                <div>
+                    <h3>Style Mixing Guide</h3>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="color: #1976d2; margin-bottom: 10px;">💡 Tips for Better Style Mixing:</h4>
+                        <ul style="margin: 0; padding-left: 20px; color: #1565c0; font-size: 14px;">
+                            <li><strong>Be Specific:</strong> Mention exact elements like "warm lighting", "vibrant colors", "soft textures"</li>
+                            <li><strong>Reference by Number:</strong> "Use the composition from image 1 and colors from image 2"</li>
+                            <li><strong>Describe Proportions:</strong> "70% style from image 1, 30% from image 2"</li>
+                            <li><strong>Focus on Elements:</strong> lighting, color palette, texture, mood, composition, brush strokes</li>
+                        </ul>
+                    </div>
+
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                        <h4 style="color: #856404; margin-bottom: 10px;">📝 Example Prompts:</h4>
+                        <div style="font-size: 13px; color: #856404;">
+                            <p style="margin: 5px 0;"><strong>"Combine the dramatic lighting from image 1 with the soft pastel colors from image 2 and the minimalist composition from image 3"</strong></p>
+                            <p style="margin: 5px 0;"><strong>"Mix the brushstroke texture of image 1, the sunset colors of image 2, and create a landscape in that combined style"</strong></p>
+                            <p style="margin: 5px 0;"><strong>"Take the mood and atmosphere from image 1, the color grading from image 2, and apply them to create a portrait"</strong></p>
+                        </div>
+                    </div>
+
+                    <h3>Available Images</h3>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button class="btn btn-small" onclick="loadImagesForMixing()" style="background: #28a745;">🔄 Refresh</button>
+                        <button class="btn btn-small" onclick="selectAllImages()" style="background: #6c757d;">Select All</button>
+                    </div>
+                    <div id="mixing-images-gallery" class="file-list" style="max-height: 400px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 15px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video from Image Tab -->
+        <div id="video-from-image" class="tab-content">
+            <h2>Generate Video from Image</h2>
+            <div class="grid">
+                <div>
+                    <form id="video-image-form">
+                        <div class="form-group">
+                            <label for="video-image-path">Image Path:</label>
+                            <input type="text" id="video-image-path" placeholder="Path to image file..." required onchange="previewSelectedImageForVideo()">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="video-image-prompt">Video Prompt:</label>
+                            <textarea id="video-image-prompt" placeholder="Describe the video motion/animation..." required></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="video-image-negative-prompt">Negative Prompt (Optional):</label>
+                            <textarea id="video-image-negative-prompt" placeholder="Describe what you DON'T want in the video (e.g., ugly, low quality, static, weird physics)"></textarea>
+                            <small style="color: #666; font-size: 12px;">Use negative prompts to exclude unwanted elements</small>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label for="video-image-aspect">Aspect Ratio:</label>
+                                <select id="video-image-aspect" required>
+                                    <option value="9:16">9:16 (Vertical)</option>
+                                    <option value="16:9">16:9 (Horizontal)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="video-image-resolution">Resolution:</label>
+                                <select id="video-image-resolution" required>
+                                    <option value="720p">720p (HD)</option>
+                                    <option value="1080p" selected>1080p (Full HD)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn">Generate Video</button>
+                    </form>
+                    <div id="video-image-loading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Generating video from image...</p>
+                    </div>
+                    <div id="video-image-result" class="result"></div>
+                </div>
+                <div>
+                    <h3>Image Preview</h3>
+                    <div id="video-image-preview" style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; min-height: 200px;">
+                        <p style="color: #666; margin-top: 80px;">Select an image to see preview</p>
+                    </div>
+                    <h3 style="margin-top: 20px;">Available Images</h3>
+                    <div id="video-images-list" class="file-list" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Tools Tab -->
+        <div id="video-tools" class="tab-content">
+            <div class="grid">
+                <div>
+                    <h2>Join Videos with Drag & Drop</h2>
+                    <div class="video-selection">
+                        <label>Available Videos (Click or Drag to add):</label>
+                        <div id="video-list-for-join" style="max-height: 200px; overflow-y: auto; margin: 10px 0;"></div>
+
+                        <label>Drag videos to reorder join sequence:</label>
+                        <div class="drag-drop-area" id="video-drop-zone">
+                            📹 Drag videos here to set join order
+                        </div>
+
+                        <div id="sortable-video-list" class="sortable-list">
+                            <p style="text-align: center; color: #999; margin: 40px 0;">No videos selected. Drag videos from above or click to add.</p>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button class="btn" onclick="joinSelectedVideos()">Join Videos</button>
+                            <button class="btn btn-small" onclick="clearSelectedVideos()" style="background: #6c757d;">Clear All</button>
+                        </div>
+                    </div>
+                    <div id="join-loading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Joining videos...</p>
+                    </div>
+                    <div id="join-result" class="result"></div>
+                </div>
+
+                <div>
+                    <h2>Frame Extraction Tools</h2>
+                    <form id="extract-form">
+                        <div class="form-group">
+                            <label for="extract-video-path">Video Path:</label>
+                            <input type="text" id="extract-video-path" placeholder="Path to video file..." required onchange="previewSelectedVideoForExtract()">
+                        </div>
+
+                        <div class="frame-extraction-tools">
+                            <button type="button" class="btn btn-small" onclick="extractFirstFrame()">Extract First Frame</button>
+                            <button type="button" class="btn btn-small" onclick="extractLastFrame()">Extract Last Frame</button>
+                            <button type="submit" class="btn btn-small">Extract All Frames</button>
+                        </div>
+                    </form>
+
+                    <div id="extract-video-preview" style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px; margin: 10px 0;">
+                        <p style="color: #666;">Select a video to see preview</p>
+                    </div>
+
+                    <div id="extract-loading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Extracting frames...</p>
+                    </div>
+                    <div id="extract-result" class="result"></div>
+
+                    <h3 style="margin-top: 20px;">Available Videos</h3>
+                    <div id="extract-videos-list" class="file-list" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Files Tab -->
+        <div id="upload" class="tab-content">
+            <h2>📤 Upload Files to Server</h2>
+            <div class="grid">
+                <div>
+                    <h3>Upload Images</h3>
+                    <div class="drag-drop-area" id="image-drop-zone" ondrop="dropHandler(event, 'image')" ondragover="dragOverHandler(event)" ondragenter="dragEnterHandler(event)" ondragleave="dragLeaveHandler(event)">
+                        <p>🖼️ Drag and drop images here</p>
+                        <p>or</p>
+                        <input type="file" id="image-file-input" accept="image/*" multiple style="display: none;" onchange="handleFileSelect(event, 'image')">
+                        <button class="btn" onclick="document.getElementById('image-file-input').click()">Choose Images</button>
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                            Supported: PNG, JPG, JPEG, GIF, BMP, WEBP (Max: 500MB each)
+                        </p>
+                    </div>
+
+                    <div id="image-upload-progress" class="loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Uploading images...</p>
+                    </div>
+
+                    <div id="image-upload-results" style="margin-top: 15px;"></div>
+                </div>
+
+                <div>
+                    <h3>Upload Videos</h3>
+                    <div class="drag-drop-area" id="video-drop-zone" ondrop="dropHandler(event, 'video')" ondragover="dragOverHandler(event)" ondragenter="dragEnterHandler(event)" ondragleave="dragLeaveHandler(event)">
+                        <p>🎬 Drag and drop videos here</p>
+                        <p>or</p>
+                        <input type="file" id="video-file-input" accept="video/*" multiple style="display: none;" onchange="handleFileSelect(event, 'video')">
+                        <button class="btn" onclick="document.getElementById('video-file-input').click()">Choose Videos</button>
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                            Supported: MP4, AVI, MOV, MKV, WMV, FLV, WEBM (Max: 500MB each)
+                        </p>
+                    </div>
+
+                    <div id="video-upload-progress" class="loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Uploading videos...</p>
+                    </div>
+
+                    <div id="video-upload-results" style="margin-top: 15px;"></div>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>📋 Upload Summary</h3>
+                    <button class="btn btn-small" onclick="loadUploadedFiles()" style="background: #6c757d;">Refresh Files</button>
+                </div>
+                <div id="upload-summary" style="margin-top: 10px;">
+                    <p style="color: #666;">No files uploaded yet</p>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                <h3>🗂️ Manage Uploaded Files</h3>
+                <div class="grid" style="margin-top: 15px;">
+                    <div>
+                        <h4>Uploaded Images</h4>
+                        <div id="uploaded-images-list" style="max-height: 300px; overflow-y: auto; margin-top: 10px;"></div>
+                    </div>
+                    <div>
+                        <h4>Uploaded Videos</h4>
+                        <div id="uploaded-videos-list" style="max-height: 300px; overflow-y: auto; margin-top: 10px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Browse Files Tab -->
+        <div id="browse" class="tab-content">
+            <div class="grid">
+                <div>
+                    <h2>Videos</h2>
+                    <button class="btn btn-small" onclick="loadVideos()">Refresh</button>
+                    <div id="videos-list" class="file-list"></div>
+                </div>
+
+                <div>
+                    <h2>Images</h2>
+                    <button class="btn btn-small" onclick="loadImages()">Refresh</button>
+                    <div id="images-list" class="file-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guidelines Tab -->
+        <div id="guidelines" class="tab-content">
+            <h2>📋 Video Generation Guidelines</h2>
+            <div style="max-width: 800px; margin: 0 auto; line-height: 1.6; color: #333;">
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">📝 Writing Effective Prompts</h3>
+                    <p>Creating high-quality videos with Veo requires well-crafted prompts. Follow these guidelines to get the best results from your video generation.</p>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">🎯 Prompt Structure</h3>
+                    <ul style="padding-left: 20px; margin: 15px 0;">
+                        <li><strong>Start with the main subject:</strong> Clearly identify what or who is the focus of your video</li>
+                        <li><strong>Describe the action:</strong> What is happening in the scene? Use active verbs</li>
+                        <li><strong>Set the scene:</strong> Where does this take place? Indoor/outdoor, specific location</li>
+                        <li><strong>Specify the style:</strong> Visual style, camera movement, lighting conditions</li>
+                        <li><strong>Add details:</strong> Colors, emotions, atmosphere, time of day</li>
+                    </ul>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">✅ Best Practices</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div style="background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">
+                            <h4 style="color: #155724; margin-bottom: 10px;">DO:</h4>
+                            <ul style="margin: 0; padding-left: 20px; color: #155724;">
+                                <li>Use specific, concrete descriptions</li>
+                                <li>Include camera movements (pan, zoom, dolly)</li>
+                                <li>Specify lighting (golden hour, soft light)</li>
+                                <li>Mention visual styles (cinematic, documentary)</li>
+                                <li>Use emotional descriptors</li>
+                                <li>Keep prompts focused and clear</li>
+                            </ul>
+                        </div>
+                        <div style="background: #f8d7da; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                            <h4 style="color: #721c24; margin-bottom: 10px;">DON'T:</h4>
+                            <ul style="margin: 0; padding-left: 20px; color: #721c24;">
+                                <li>Use overly complex or conflicting instructions</li>
+                                <li>Include multiple unrelated scenes</li>
+                                <li>Use abstract or vague descriptions</li>
+                                <li>Request impossible physics or actions</li>
+                                <li>Overload with too many details</li>
+                                <li>Use contradictory style directions</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">💡 Example Prompts</h3>
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 15px 0;">
+                        <h4 style="color: #667eea; margin-bottom: 10px;">Good Example:</h4>
+                        <p style="background: white; padding: 15px; border-radius: 6px; margin: 10px 0; font-style: italic;">"A red vintage car driving down a winding mountain road at sunset. The camera follows from behind with a smooth tracking shot. Golden hour lighting casts warm shadows. The car's headlights begin to turn on as it navigates the curves. Cinematic style with shallow depth of field."</p>
+                        <h4 style="color: #dc3545; margin-bottom: 10px; margin-top: 20px;">Poor Example:</h4>
+                        <p style="background: white; padding: 15px; border-radius: 6px; margin: 10px 0; font-style: italic; opacity: 0.7;">"Car moving fast somewhere nice looking good"</p>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">🎬 Camera & Style Tips</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                        <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                            <h4 style="color: #1976d2; margin-bottom: 10px;">Camera Movements:</h4>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
+                                <li>Dolly in/out</li>
+                                <li>Pan left/right</li>
+                                <li>Tilt up/down</li>
+                                <li>Tracking shot</li>
+                                <li>Handheld</li>
+                                <li>Static/fixed</li>
+                            </ul>
+                        </div>
+                        <div style="background: #f3e5f5; padding: 15px; border-radius: 8px;">
+                            <h4 style="color: #7b1fa2; margin-bottom: 10px;">Lighting:</h4>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
+                                <li>Golden hour</li>
+                                <li>Blue hour</li>
+                                <li>Soft natural light</li>
+                                <li>Dramatic shadows</li>
+                                <li>Backlit</li>
+                                <li>Studio lighting</li>
+                            </ul>
+                        </div>
+                        <div style="background: #e8f5e8; padding: 15px; border-radius: 8px;">
+                            <h4 style="color: #388e3c; margin-bottom: 10px;">Visual Styles:</h4>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
+                                <li>Cinematic</li>
+                                <li>Documentary</li>
+                                <li>Vintage/retro</li>
+                                <li>High contrast</li>
+                                <li>Minimalist</li>
+                                <li>Hyper-realistic</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107;">
+                    <h3 style="color: #856404; margin-bottom: 15px;">⚡ Pro Tips</h3>
+                    <ul style="margin: 0; padding-left: 20px; color: #856404;">
+                        <li><strong>Use negative prompts</strong> to exclude unwanted elements (ugly, distorted, low quality)</li>
+                        <li><strong>Specify aspect ratio</strong> based on your intended use (9:16 for social, 16:9 for YouTube)</li>
+                        <li><strong>Choose appropriate resolution</strong> - 1080p for most uses, 720p for faster generation</li>
+                        <li><strong>Be patient</strong> - high-quality video generation takes time</li>
+                        <li><strong>Iterate and refine</strong> - use the Prompt Refinement tab to improve your prompts</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prompt Refinement Tab -->
+        <div id="prompt-refine" class="tab-content">
+            <h2>🚀 AI-Powered Prompt Refinement</h2>
+            <div style="max-width: 800px; margin: 0 auto;">
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                    <p style="margin: 0; color: #666; text-align: center;">Improve your video generation prompts with AI assistance. Our system uses Gemini 2.0 Flash to enhance your prompts based on best practices for Veo video generation.</p>
+                </div>
+
+                <form id="refine-form">
+                    <div class="form-group">
+                        <label for="original-prompt">Original Prompt:</label>
+                        <textarea id="original-prompt" placeholder="Enter your original video prompt here..." required style="height: 120px;"></textarea>
+                        <small style="color: #666; font-size: 12px;">Describe your video idea in your own words - don't worry about being perfect!</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="refinement-focus">Refinement Focus (Optional):</label>
+                        <select id="refinement-focus">
+                            <option value="general">General Improvement</option>
+                            <option value="cinematic">More Cinematic</option>
+                            <option value="detailed">Add More Details</option>
+                            <option value="technical">Technical/Camera Focus</option>
+                            <option value="creative">Creative Enhancement</option>
+                        </select>
+                        <small style="color: #666; font-size: 12px;">Choose the type of improvement you want</small>
+                    </div>
+
+                    <button type="submit" class="btn">✨ Refine My Prompt</button>
+                </form>
+
+                <div id="refine-loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>AI is analyzing and improving your prompt...</p>
+                </div>
+
+                <div id="refine-result" style="display: none; margin-top: 30px;">
+                    <h3 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">📝 Refined Prompt</h3>
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 15px 0;">
+                        <div id="refined-prompt-text" style="background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #28a745; font-style: italic; line-height: 1.6;"></div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px; justify-content: center;">
+                            <button class="btn btn-small" onclick="copyRefinedPrompt()" style="background: #6c757d;">📋 Copy Refined Prompt</button>
+                            <button class="btn btn-small" onclick="useRefinedPrompt()" style="background: #28a745;">✅ Use in Video Generation</button>
+                        </div>
+                    </div>
+
+                    <div id="improvement-explanation" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                        <h4 style="color: #1976d2; margin-bottom: 10px;">💡 What was improved:</h4>
+                        <div id="explanation-text" style="color: #1565c0; font-size: 14px; line-height: 1.5;"></div>
+                    </div>
+                </div>
+
+                <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107; margin-top: 30px;">
+                    <h3 style="color: #856404; margin-bottom: 15px;">💡 How It Works</h3>
+                    <p style="color: #856404; margin: 0;">Our AI analyzes your prompt and applies best practices for video generation, including:</p>
+                    <ul style="margin: 10px 0 0 20px; padding: 0; color: #856404;">
+                        <li>Adding specific visual details and camera movements</li>
+                        <li>Enhancing lighting and atmosphere descriptions</li>
+                        <li>Improving structure and clarity</li>
+                        <li>Suggesting appropriate styles and techniques</li>
+                        <li>Ensuring compatibility with Veo's capabilities</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Tab -->
+        <div id="config" class="tab-content">
+            <h2>⚙️ Application Configuration</h2>
+            <div style="max-width: 900px; margin: 0 auto;">
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                    <p style="margin: 0; color: #666; text-align: center;">
+                        Manage application settings, model configurations, and generation preferences. Changes are saved automatically.
+                    </p>
+                </div>
+
+                <div id="config-loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Loading configuration...</p>
+                </div>
+
+                <div id="config-content" style="display: none;">
+                    <!-- Model Configuration -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #667eea;">
+                        <h3 style="color: #333; margin-bottom: 15px;">🤖 AI Models</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                            <div class="form-group">
+                                <label>Video Generation Model:</label>
+                                <input type="text" id="config-video-model" readonly style="background: #f8f9fa;">
+                                <small style="color: #666; font-size: 12px;" id="video-model-desc"></small>
+                            </div>
+                            <div class="form-group">
+                                <label>Image Generation Model:</label>
+                                <input type="text" id="config-image-model" readonly style="background: #f8f9fa;">
+                                <small style="color: #666; font-size: 12px;" id="image-model-desc"></small>
+                            </div>
+                            <div class="form-group">
+                                <label>Image Editing Model:</label>
+                                <input type="text" id="config-edit-model" readonly style="background: #f8f9fa;">
+                                <small style="color: #666; font-size: 12px;" id="edit-model-desc"></small>
+                            </div>
+                            <div class="form-group">
+                                <label>Prompt Refinement Model:</label>
+                                <input type="text" id="config-refine-model" readonly style="background: #f8f9fa;">
+                                <small style="color: #666; font-size: 12px;" id="refine-model-desc"></small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generation Settings -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #28a745;">
+                        <h3 style="color: #333; margin-bottom: 15px;">🎬 Generation Settings</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div class="form-group">
+                                <label for="config-default-resolution">Default Video Resolution:</label>
+                                <select id="config-default-resolution" onchange="updateConfig('generation_settings.video.default_resolution', this.value)">
+                                    <option value="720p">720p (HD)</option>
+                                    <option value="1080p">1080p (Full HD)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="config-default-aspect">Default Aspect Ratio:</label>
+                                <select id="config-default-aspect" onchange="updateConfig('generation_settings.video.default_aspect_ratio', this.value)">
+                                    <option value="16:9">16:9 (Horizontal)</option>
+                                    <option value="9:16">9:16 (Vertical)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="config-video-timeout">Video Generation Timeout (seconds):</label>
+                                <input type="number" id="config-video-timeout" min="60" max="600" onchange="updateConfig('generation_settings.video.timeout_seconds', parseInt(this.value))">
+                            </div>
+                            <div class="form-group">
+                                <label for="config-retry-attempts">Retry Attempts:</label>
+                                <input type="number" id="config-retry-attempts" min="1" max="5" onchange="updateConfig('generation_settings.video.retry_attempts', parseInt(this.value))">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Feature Settings -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                        <h3 style="color: #333; margin-bottom: 15px;">✨ Features</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" id="config-prompt-refinement" onchange="updateConfig('features.ai_features.prompt_refinement_enabled', this.checked)">
+                                    Enable Prompt Refinement
+                                </label>
+                                <small style="color: #666; font-size: 12px;">AI-powered prompt improvement using Gemini</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" id="config-negative-prompts" onchange="updateConfig('features.ai_features.negative_prompts_enabled', this.checked)">
+                                    Enable Negative Prompts
+                                </label>
+                                <small style="color: #666; font-size: 12px;">Allow users to specify what they don't want</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" id="config-ffmpeg" onchange="updateConfig('features.video_tools.ffmpeg_enabled', this.checked)">
+                                    Enable FFmpeg Video Tools
+                                </label>
+                                <small style="color: #666; font-size: 12px;">Video joining and frame extraction</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Settings -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #6f42c1;">
+                        <h3 style="color: #333; margin-bottom: 15px;">📁 File Handling</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div class="form-group">
+                                <label>Max File Size (MB):</label>
+                                <input type="text" id="config-max-file-size" readonly style="background: #f8f9fa;">
+                                <small style="color: #666; font-size: 12px;">Maximum file size for uploads</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Output Directory:</label>
+                                <input type="text" id="config-output-dir" readonly style="background: #f8f9fa;">
+                                <small style="color: #666; font-size: 12px;">Local storage directory</small>
+                            </div>
+                            <div class="form-group">
+                                <label>GCS Upload Threshold (MB):</label>
+                                <input type="text" id="config-gcs-threshold" readonly style="background: #f8f9fa;">
+                                <small style="color: #666; font-size: 12px;">Files above this size upload to cloud storage</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- UI Settings -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #17a2b8;">
+                        <h3 style="color: #333; margin-bottom: 15px;">🎨 User Interface</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div class="form-group">
+                                <label for="config-default-tab">Default Tab:</label>
+                                <select id="config-default-tab" onchange="updateConfig('ui_settings.tabs.default_tab', this.value)">
+                                    <option value="video-gen">Video Generation</option>
+                                    <option value="image-gen">Image Generation</option>
+                                    <option value="guidelines">Guidelines</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Primary Color:</label>
+                                <input type="color" id="config-primary-color" readonly style="background: #f8f9fa;">
+                                <small style="color: #666; font-size: 12px;">Main theme color</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center;">
+                        <button class="btn" onclick="saveConfiguration()" style="margin-right: 10px;">💾 Save Configuration</button>
+                        <button class="btn" onclick="resetConfiguration()" style="background: #6c757d; margin-right: 10px;">🔄 Reset to Defaults</button>
+                        <button class="btn" onclick="exportConfiguration()" style="background: #17a2b8;">📥 Export Config</button>
+                    </div>
+                </div>
+
+                <div id="config-error" style="display: none; background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                    <strong>Configuration Error:</strong> <span id="config-error-message"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for image/video preview -->
+    <div id="previewModal" class="modal" onclick="closeModal()">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <img class="modal-content" id="modalImage" style="display: none;">
+        <video class="modal-video" id="modalVideo" controls style="display: none;">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <script>
+        let selectedVideos = [];
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked tab
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+
+            // Load data for specific tabs
+            if (tabName === 'browse') {
+                loadVideos();
+                loadImages();
+            } else if (tabName === 'video-tools') {
+                loadVideosForJoin();
+                loadVideosForExtract();
+            } else if (tabName === 'image-edit') {
+                loadImagesForEdit();
+            } else if (tabName === 'video-from-image') {
+                loadImagesForVideoGeneration();
+            } else if (tabName === 'upload') {
+                loadUploadedFiles();
+            } else if (tabName === 'config') {
+                loadConfiguration();
+            }
+        }
+
+        // Video Generation
+        document.getElementById('video-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const prompt = document.getElementById('video-prompt').value;
+            const negativePrompt = document.getElementById('video-negative-prompt').value;
+            const aspectRatio = document.getElementById('aspect-ratio').value;
+            const resolution = document.getElementById('video-resolution').value;
+
+            document.getElementById('video-loading').style.display = 'block';
+            document.getElementById('video-result').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/generate-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt,
+                        negative_prompt: negativePrompt,
+                        aspect_ratio: aspectRatio,
+                        resolution: resolution
+                    })
+                });
+
+                const result = await response.json();
+                displayResult('video-result', result);
+            } catch (error) {
+                displayResult('video-result', { error: error.message });
+            } finally {
+                document.getElementById('video-loading').style.display = 'none';
+            }
+        });
+
+        // Image Generation
+        document.getElementById('image-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const prompt = document.getElementById('image-prompt').value;
+
+            document.getElementById('image-loading').style.display = 'block';
+            document.getElementById('image-result').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/generate-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+
+                const result = await response.json();
+                displayResult('image-result', result);
+            } catch (error) {
+                displayResult('image-result', { error: error.message });
+            } finally {
+                document.getElementById('image-loading').style.display = 'none';
+            }
+        });
+
+        // Image Editing
+        document.getElementById('edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const imagePath = document.getElementById('image-path').value;
+            const editPrompt = document.getElementById('edit-prompt').value;
+            const enableValidation = document.getElementById('enable-validation').checked;
+            const maxRetries = parseInt(document.getElementById('max-retries').value);
+
+            document.getElementById('edit-loading').style.display = 'block';
+            document.getElementById('edit-result').style.display = 'none';
+
+            // Update loading message based on validation mode
+            const loadingText = enableValidation ?
+                'Processing image edit with AI validation... This may take longer but will ensure better results.' :
+                'Processing image edit...';
+            document.querySelector('#edit-loading p').textContent = loadingText;
+
+            try {
+                const requestBody = {
+                    image_path: imagePath,
+                    edit_prompt: editPrompt,
+                    enable_validation: enableValidation,
+                    max_retries: maxRetries
+                };
+
+                const response = await fetch('/api/edit-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const result = await response.json();
+                displayEditResult(result, enableValidation);
+            } catch (error) {
+                displayEditResult({ error: error.message }, enableValidation);
+            } finally {
+                document.getElementById('edit-loading').style.display = 'none';
+            }
+        });
+
+        function toggleValidationOptions() {
+            const checkbox = document.getElementById('enable-validation');
+            const options = document.getElementById('validation-options');
+            options.style.display = checkbox.checked ? 'block' : 'none';
+        }
+
+        function displayEditResult(result, validationEnabled) {
+            const element = document.getElementById('edit-result');
+            element.style.display = 'block';
+
+            if (result.error) {
+                element.className = 'result error';
+                element.innerHTML = `<strong>Error:</strong> ${result.error}`;
+                return;
+            }
+
+            element.className = 'result success';
+            let html = '<strong>Image Edit Complete!</strong><br>';
+
+            if (validationEnabled && result.success) {
+                // Show validation results
+                html += `<div style="background: #e8f5e8; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                html += `<h4 style="color: #2e7d32; margin-bottom: 10px;">🎯 AI Validation Results</h4>`;
+
+                const validation = result.validation;
+                const confidence = (validation.confidence_score * 100).toFixed(1);
+
+                html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 15px;">`;
+                html += `<div><strong>Validation:</strong> ${validation.validation_passed ? '✅ Passed' : '❌ Failed'}</div>`;
+                html += `<div><strong>Confidence:</strong> ${confidence}%</div>`;
+                html += `<div><strong>Attempts:</strong> ${result.total_attempts}</div>`;
+                html += `</div>`;
+
+                html += `<div style="margin-bottom: 10px;"><strong>Analysis:</strong> ${validation.analysis}</div>`;
+
+                if (result.final_prompt !== result.attempts[0]?.prompt) {
+                    html += `<div style="background: #f3e5f5; padding: 10px; border-radius: 4px; margin-top: 10px;">`;
+                    html += `<strong>Final Enhanced Prompt:</strong><br>${result.final_prompt}`;
+                    html += `</div>`;
+                }
+                html += `</div>`;
+
+                // Show attempt details
+                if (result.attempts && result.attempts.length > 1) {
+                    html += `<details style="margin: 15px 0;">`;
+                    html += `<summary style="cursor: pointer; font-weight: 600; color: #1976d2;">📊 View All Attempts (${result.attempts.length})</summary>`;
+                    html += `<div style="margin-top: 10px;">`;
+
+                    result.attempts.forEach((attempt, index) => {
+                        html += `<div style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 5px 0; border-left: 3px solid ${attempt.result === 'success' ? '#4caf50' : '#f44336'};">`;
+                        html += `<strong>Attempt ${attempt.attempt}:</strong> ${attempt.result}<br>`;
+                        html += `<small style="color: #666;">Prompt: ${attempt.prompt}</small>`;
+                        if (attempt.enhancement) {
+                            html += `<br><small style="color: #1976d2;">Enhancement: ${attempt.enhancement.explanation}</small>`;
+                        }
+                        html += `</div>`;
+                    });
+
+                    html += `</div></details>`;
+                }
+
+                // Final result
+                html += `<div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                html += `<h4 style="color: #1976d2; margin-bottom: 10px;">📝 Edit Result</h4>`;
+                html += `<strong>Description:</strong> ${result.final_result.description}<br>`;
+                html += `<strong>Original Image:</strong> ${result.final_result.original_path}`;
+                html += `</div>`;
+            } else {
+                // Standard edit result
+                if (result.description) {
+                    html += `<strong>Description:</strong> ${result.description}<br>`;
+                }
+                if (result.original_path) {
+                    html += `<strong>Original Image:</strong> ${result.original_path}<br>`;
+                }
+            }
+
+            // Show suggestions if validation failed
+            if (validationEnabled && !result.success && result.suggestion) {
+                html += `<div style="background: #fff3cd; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #ffc107;">`;
+                html += `<h4 style="color: #856404; margin-bottom: 10px;">💡 Suggestion</h4>`;
+                html += `${result.suggestion}`;
+                html += `</div>`;
+            }
+
+            element.innerHTML = html;
+        }
+
+        // Video from Image
+        document.getElementById('video-image-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const imagePath = document.getElementById('video-image-path').value;
+            const prompt = document.getElementById('video-image-prompt').value;
+            const negativePrompt = document.getElementById('video-image-negative-prompt').value;
+            const aspectRatio = document.getElementById('video-image-aspect').value;
+            const resolution = document.getElementById('video-image-resolution').value;
+
+            document.getElementById('video-image-loading').style.display = 'block';
+            document.getElementById('video-image-result').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/generate-video-from-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: imagePath,
+                        prompt: prompt,
+                        negative_prompt: negativePrompt,
+                        aspect_ratio: aspectRatio,
+                        resolution: resolution
+                    })
+                });
+
+                const result = await response.json();
+                displayResult('video-image-result', result);
+            } catch (error) {
+                displayResult('video-image-result', { error: error.message });
+            } finally {
+                document.getElementById('video-image-loading').style.display = 'none';
+            }
+        });
+
+        // Extract Frames
+        document.getElementById('extract-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const videoPath = document.getElementById('extract-video-path').value;
+
+            document.getElementById('extract-loading').style.display = 'block';
+            document.getElementById('extract-result').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/extract-frames', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_path: videoPath })
+                });
+
+                const result = await response.json();
+                displayResult('extract-result', result);
+            } catch (error) {
+                displayResult('extract-result', { error: error.message });
+            } finally {
+                document.getElementById('extract-loading').style.display = 'none';
+            }
+        });
+
+        function displayResult(elementId, result) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+
+            if (result.error) {
+                element.className = 'result error';
+                element.innerHTML = `<strong>Error:</strong> ${result.error}`;
+            } else {
+                element.className = 'result success';
+                let html = '<strong>Success!</strong><br>';
+
+                if (result.local_path) {
+                    html += `<strong>Local file:</strong> ${result.local_path}<br>`;
+                }
+                if (result.gcs_url) {
+                    html += `<strong>GCS URL:</strong> ${result.gcs_url}<br>`;
+                }
+                if (result.description) {
+                    html += `<strong>Description:</strong> ${result.description}<br>`;
+                }
+                if (result.frames_dir) {
+                    html += `<strong>Frames extracted to:</strong> ${result.frames_dir}<br>`;
+                    html += `<strong>Frame count:</strong> ${result.frame_count}<br>`;
+                }
+                if (result.output_path) {
+                    html += `<strong>Joined video:</strong> ${result.output_path}<br>`;
+                }
+
+                element.innerHTML = html;
+            }
+        }
+
+        async function loadVideos() {
+            try {
+                const response = await fetch('/api/list-videos');
+                const data = await response.json();
+
+                const container = document.getElementById('videos-list');
+                container.innerHTML = '';
+
+                if (data.videos && data.videos.length > 0) {
+                    data.videos.forEach(video => {
+                        const item = document.createElement('div');
+                        item.className = 'file-item';
+                        item.innerHTML = `
+                            <div class="file-info">
+                                <video class="file-preview" onclick="previewVideo('${video.name}')"
+                                       onmouseover="this.play()" onmouseout="this.pause()">
+                                    <source src="/preview/video/${video.name}" type="video/mp4">
+                                </video>
+                                <div class="file-details-container">
+                                    <div class="file-name">${video.name}</div>
+                                    <div class="file-details">
+                                        Size: ${formatFileSize(video.size)} |
+                                        Created: ${new Date(video.created * 1000).toLocaleString()}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <button class="btn btn-small" onclick="previewVideo('${video.name}')">Preview</button>
+                                <button class="btn btn-small" onclick="copyToClipboard('${video.path}')">Copy Path</button>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } else {
+                    container.innerHTML = '<p>No videos found.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading videos:', error);
+            }
+        }
+
+        async function loadImages() {
+            try {
+                const response = await fetch('/api/list-images');
+                const data = await response.json();
+
+                const container = document.getElementById('images-list');
+                container.innerHTML = '';
+
+                if (data.images && data.images.length > 0) {
+                    data.images.forEach(image => {
+                        const item = document.createElement('div');
+                        item.className = 'file-item';
+                        item.innerHTML = `
+                            <div class="file-info">
+                                <img class="file-preview" src="/preview/image/${image.name}"
+                                     onclick="previewImage('${image.name}')" alt="${image.name}">
+                                <div class="file-details-container">
+                                    <div class="file-name">${image.name}</div>
+                                    <div class="file-details">
+                                        Size: ${formatFileSize(image.size)} |
+                                        Created: ${new Date(image.created * 1000).toLocaleString()}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <button class="btn btn-small" onclick="previewImage('${image.name}')">Preview</button>
+                                <button class="btn btn-small" onclick="copyToClipboard('${image.path}')">Copy Path</button>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } else {
+                    container.innerHTML = '<p>No images found.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading images:', error);
+            }
+        }
+
+        async function loadVideosForJoin() {
+            try {
+                const response = await fetch('/api/list-videos');
+                const data = await response.json();
+
+                const container = document.getElementById('video-list-for-join');
+                container.innerHTML = '';
+
+                if (data.videos && data.videos.length > 0) {
+                    data.videos.forEach(video => {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'display: flex; align-items: center; margin: 8px 0; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e1e1e1; cursor: pointer;';
+                        item.draggable = true;
+                        item.dataset.videoPath = video.path;
+                        item.dataset.videoName = video.name;
+
+                        item.addEventListener('dragstart', handleDragStart);
+                        item.addEventListener('click', () => addVideoToJoinList(video.path, video.name));
+
+                        item.innerHTML = `
+                            <div style="color: #999; margin-right: 8px; cursor: grab;">⋮⋮</div>
+                            <video style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;"
+                                   onmouseover="this.play()" onmouseout="this.pause()">
+                                <source src="/preview/video/${video.name}" type="video/mp4">
+                            </video>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 14px;">${video.name}</div>
+                                <div style="font-size: 12px; color: #666;">${formatFileSize(video.size)}</div>
+                            </div>
+                            <button class="btn btn-small" onclick="event.stopPropagation(); previewVideo('${video.name}')" style="margin-left: 10px;">Preview</button>
+                        `;
+                        container.appendChild(item);
+                    });
+                }
+
+                // Setup drop zone
+                setupDropZone();
+            } catch (error) {
+                console.error('Error loading videos for join:', error);
+            }
+        }
+
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Path copied to clipboard!');
+            });
+        }
+
+        function previewImage(filename) {
+            const modal = document.getElementById('previewModal');
+            const modalImage = document.getElementById('modalImage');
+            const modalVideo = document.getElementById('modalVideo');
+
+            modalVideo.style.display = 'none';
+            modalVideo.pause();
+            modalImage.style.display = 'block';
+            modalImage.src = `/preview/image/${filename}`;
+            modal.style.display = 'flex';
+        }
+
+        function previewVideo(filename) {
+            const modal = document.getElementById('previewModal');
+            const modalImage = document.getElementById('modalImage');
+            const modalVideo = document.getElementById('modalVideo');
+
+            modalImage.style.display = 'none';
+            modalVideo.style.display = 'block';
+            modalVideo.src = `/preview/video/${filename}`;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('previewModal');
+            const modalVideo = document.getElementById('modalVideo');
+
+            modal.style.display = 'none';
+            modalVideo.pause();
+        }
+
+        // Close modal when clicking outside of content
+        document.getElementById('previewModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Image editing preview functions
+        async function loadImagesForEdit() {
+            try {
+                const response = await fetch('/api/list-images');
+                const data = await response.json();
+
+                const container = document.getElementById('edit-images-list');
+                container.innerHTML = '';
+
+                if (data.images && data.images.length > 0) {
+                    data.images.forEach(image => {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'display: flex; align-items: center; margin: 8px 0; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e1e1e1; cursor: pointer;';
+                        item.onclick = () => selectImageForEdit(image.path, image.name);
+                        item.innerHTML = `
+                            <img style="width: 50px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;"
+                                 src="/preview/image/${image.name}" alt="${image.name}">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 14px;">${image.name}</div>
+                                <div style="font-size: 12px; color: #666;">${formatFileSize(image.size)}</div>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No images found</p>';
+                }
+            } catch (error) {
+                console.error('Error loading images for edit:', error);
+            }
+        }
+
+        function selectImageForEdit(imagePath, imageName) {
+            document.getElementById('image-path').value = imagePath;
+            previewSelectedImage();
+        }
+
+        function previewSelectedImage() {
+            const imagePath = document.getElementById('image-path').value;
+            const previewContainer = document.getElementById('edit-image-preview');
+
+            if (imagePath) {
+                // Extract filename from path
+                const filename = imagePath.split('/').pop();
+                previewContainer.innerHTML = `
+                    <img src="/preview/image/${filename}"
+                         style="max-width: 100%; max-height: 300px; border-radius: 8px; cursor: pointer;"
+                         onclick="previewImage('${filename}')"
+                         onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4='; this.alt='Image not found';">
+                    <p style="margin-top: 10px; font-size: 14px; color: #666;">Click to view full size</p>
+                `;
+            } else {
+                previewContainer.innerHTML = '<p style="color: #666; margin-top: 80px;">Enter image path to see preview</p>';
+            }
+        }
+
+        function previewSelectedVideoForExtract() {
+            const videoPath = document.getElementById('extract-video-path').value;
+            const previewContainer = document.getElementById('extract-video-preview');
+
+            if (videoPath) {
+                // Extract filename from path
+                const filename = videoPath.split('/').pop();
+                previewContainer.innerHTML = `
+                    <video style="max-width: 100%; max-height: 200px; border-radius: 8px;" controls>
+                        <source src="/preview/video/${filename}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                    <p style="margin-top: 10px; font-size: 14px; color: #666;">Video preview for frame extraction</p>
+                `;
+            } else {
+                previewContainer.innerHTML = '<p style="color: #666;">Enter video path to see preview</p>';
+            }
+        }
+
+        // Drag and Drop functionality
+        let draggedElement = null;
+        let selectedVideosForJoin = [];
+
+        function handleDragStart(e) {
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', e.target.outerHTML);
+        }
+
+        function setupDropZone() {
+            const dropZone = document.getElementById('video-drop-zone');
+            const sortableList = document.getElementById('sortable-video-list');
+
+            [dropZone, sortableList].forEach(zone => {
+                zone.addEventListener('dragover', handleDragOver);
+                zone.addEventListener('drop', handleDrop);
+                zone.addEventListener('dragenter', handleDragEnter);
+                zone.addEventListener('dragleave', handleDragLeave);
+            });
+
+            // Make sortable list sortable
+            new Sortable(sortableList, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onUpdate: function(evt) {
+                    updateSelectedVideosOrder();
+                }
+            });
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            e.target.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.target.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.target.classList.remove('drag-over');
+
+            if (draggedElement) {
+                const videoPath = draggedElement.dataset.videoPath;
+                const videoName = draggedElement.dataset.videoName;
+
+                if (videoPath && videoName) {
+                    addVideoToJoinList(videoPath, videoName);
+                }
+
+                draggedElement.classList.remove('dragging');
+                draggedElement = null;
+            }
+        }
+
+        function addVideoToJoinList(videoPath, videoName) {
+            // Check if video is already in the list
+            if (selectedVideosForJoin.some(v => v.path === videoPath)) {
+                return;
+            }
+
+            selectedVideosForJoin.push({ path: videoPath, name: videoName });
+            updateJoinListDisplay();
+        }
+
+        function updateJoinListDisplay() {
+            const container = document.getElementById('sortable-video-list');
+
+            if (selectedVideosForJoin.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999; margin: 40px 0;">No videos selected. Drag videos from above or click to add.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            selectedVideosForJoin.forEach((video, index) => {
+                const item = document.createElement('div');
+                item.className = 'sortable-item';
+                item.dataset.videoPath = video.path;
+                item.innerHTML = `
+                    <div class="drag-handle">⋮⋮</div>
+                    <video style="width: 50px; height: 35px; object-fit: cover; border-radius: 4px;"
+                           onmouseover="this.play()" onmouseout="this.pause()">
+                        <source src="/preview/video/${video.name}" type="video/mp4">
+                    </video>
+                    <div style="flex: 1; margin-left: 10px;">
+                        <div style="font-weight: 600; font-size: 14px;">${video.name}</div>
+                        <div style="font-size: 12px; color: #666;">Position ${index + 1}</div>
+                    </div>
+                    <button class="btn btn-small" onclick="removeVideoFromJoinList('${video.path}')" style="background: #dc3545; margin-left: 10px;">Remove</button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function removeVideoFromJoinList(videoPath) {
+            selectedVideosForJoin = selectedVideosForJoin.filter(v => v.path !== videoPath);
+            updateJoinListDisplay();
+        }
+
+        function clearSelectedVideos() {
+            selectedVideosForJoin = [];
+            updateJoinListDisplay();
+        }
+
+        // Frame Extraction Video Loading
+        async function loadVideosForExtract() {
+            try {
+                const response = await fetch('/api/list-videos');
+                const data = await response.json();
+
+                const container = document.getElementById('extract-videos-list');
+                container.innerHTML = '';
+
+                if (data.videos && data.videos.length > 0) {
+                    data.videos.forEach(video => {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'display: flex; align-items: center; margin: 8px 0; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e1e1e1; cursor: pointer;';
+                        item.onclick = () => selectVideoForExtract(video.path, video.name);
+
+                        item.innerHTML = `
+                            <video style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;"
+                                   onmouseover="this.play()" onmouseout="this.pause()">
+                                <source src="/preview/video/${video.name}" type="video/mp4">
+                            </video>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 14px;">${video.name}</div>
+                                <div style="font-size: 12px; color: #666;">${formatFileSize(video.size)}</div>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No videos found</p>';
+                }
+            } catch (error) {
+                console.error('Error loading videos for extraction:', error);
+            }
+        }
+
+        function selectVideoForExtract(videoPath, videoName) {
+            // Update the input field
+            document.getElementById('extract-video-path').value = videoPath;
+
+            // Update the preview
+            const previewContainer = document.getElementById('extract-video-preview');
+            previewContainer.innerHTML = `
+                <video controls style="max-width: 100%; max-height: 200px; border-radius: 6px;">
+                    <source src="/preview/video/${videoName}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            `;
+
+            // Highlight selected video
+            document.querySelectorAll('#extract-videos-list > div').forEach(item => {
+                item.style.background = 'white';
+                item.style.borderColor = '#e1e1e1';
+            });
+
+            // Highlight the selected item
+            event.target.closest('div').style.background = '#e8f4fd';
+            event.target.closest('div').style.borderColor = '#667eea';
+        }
+
+        function updateSelectedVideosOrder() {
+            const items = document.querySelectorAll('#sortable-video-list .sortable-item');
+            const newOrder = [];
+
+            items.forEach(item => {
+                const videoPath = item.dataset.videoPath;
+                const video = selectedVideosForJoin.find(v => v.path === videoPath);
+                if (video) {
+                    newOrder.push(video);
+                }
+            });
+
+            selectedVideosForJoin = newOrder;
+            updateJoinListDisplay();
+        }
+
+        // Update join function to use new video list
+        async function joinSelectedVideos() {
+            if (selectedVideosForJoin.length < 2) {
+                alert('Please select at least 2 videos to join.');
+                return;
+            }
+
+            document.getElementById('join-loading').style.display = 'block';
+            document.getElementById('join-result').style.display = 'none';
+
+            try {
+                const videoPaths = selectedVideosForJoin.map(v => v.path);
+                const response = await fetch('/api/join-videos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_paths: videoPaths })
+                });
+
+                const result = await response.json();
+                displayResult('join-result', result);
+
+                if (result.success) {
+                    // Clear the selection after successful join
+                    clearSelectedVideos();
+                }
+            } catch (error) {
+                displayResult('join-result', { error: error.message });
+            } finally {
+                document.getElementById('join-loading').style.display = 'none';
+            }
+        }
+
+        // Frame extraction functions
+        async function extractFirstFrame() {
+            const videoPath = document.getElementById('extract-video-path').value;
+
+            if (!videoPath) {
+                alert('Please enter a video path first.');
+                return;
+            }
+
+            document.getElementById('extract-loading').style.display = 'block';
+            document.getElementById('extract-result').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/extract-first-frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_path: videoPath })
+                });
+
+                const result = await response.json();
+                displayResult('extract-result', result);
+            } catch (error) {
+                displayResult('extract-result', { error: error.message });
+            } finally {
+                document.getElementById('extract-loading').style.display = 'none';
+            }
+        }
+
+        async function extractLastFrame() {
+            const videoPath = document.getElementById('extract-video-path').value;
+
+            if (!videoPath) {
+                alert('Please enter a video path first.');
+                return;
+            }
+
+            document.getElementById('extract-loading').style.display = 'block';
+            document.getElementById('extract-result').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/extract-last-frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_path: videoPath })
+                });
+
+                const result = await response.json();
+                displayResult('extract-result', result);
+            } catch (error) {
+                displayResult('extract-result', { error: error.message });
+            } finally {
+                document.getElementById('extract-loading').style.display = 'none';
+            }
+        }
+
+        // File Upload Functions
+        let uploadedFiles = [];
+
+        function dragOverHandler(ev) {
+            ev.preventDefault();
+            ev.dataTransfer.dropEffect = "copy";
+        }
+
+        function dragEnterHandler(ev) {
+            ev.preventDefault();
+            ev.target.classList.add('drag-over');
+        }
+
+        function dragLeaveHandler(ev) {
+            ev.target.classList.remove('drag-over');
+        }
+
+        function dropHandler(ev, fileType) {
+            ev.preventDefault();
+            ev.target.classList.remove('drag-over');
+
+            const files = Array.from(ev.dataTransfer.files);
+            uploadFiles(files, fileType);
+        }
+
+        function handleFileSelect(event, fileType) {
+            const files = Array.from(event.target.files);
+            uploadFiles(files, fileType);
+        }
+
+        async function uploadFiles(files, fileType) {
+            if (files.length === 0) return;
+
+            const progressElement = document.getElementById(`${fileType}-upload-progress`);
+            const resultsElement = document.getElementById(`${fileType}-upload-results`);
+
+            progressElement.style.display = 'block';
+            resultsElement.innerHTML = '';
+
+            const uploadResults = [];
+
+            for (const file of files) {
+                try {
+                    const result = await uploadSingleFile(file, fileType);
+                    uploadResults.push(result);
+                    uploadedFiles.push(result);
+                } catch (error) {
+                    uploadResults.push({
+                        error: error.message,
+                        filename: file.name
+                    });
+                }
+            }
+
+            progressElement.style.display = 'none';
+            displayUploadResults(uploadResults, fileType);
+            updateUploadSummary();
+
+            // Clear file inputs
+            document.getElementById(`${fileType}-file-input`).value = '';
+        }
+
+        async function uploadSingleFile(file, fileType) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const endpoint = fileType === 'image' ? '/api/upload-image' : '/api/upload-video';
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText}`);
+            }
+
+            return await response.json();
+        }
+
+        function displayUploadResults(results, fileType) {
+            const resultsElement = document.getElementById(`${fileType}-upload-results`);
+            resultsElement.innerHTML = '';
+
+            results.forEach(result => {
+                const item = document.createElement('div');
+                item.style.cssText = 'margin: 10px 0; padding: 15px; border-radius: 8px; border: 1px solid #e1e1e1;';
+
+                if (result.error) {
+                    item.style.background = '#f8d7da';
+                    item.style.borderColor = '#f5c6cb';
+                    item.innerHTML = `
+                        <div style="color: #721c24; font-weight: 600;">${result.filename || 'Unknown file'}</div>
+                        <div style="color: #721c24; font-size: 14px; margin-top: 5px;">Error: ${result.error}</div>
+                    `;
+                } else {
+                    item.style.background = '#d4edda';
+                    item.style.borderColor = '#c3e6cb';
+
+                    const previewHtml = fileType === 'image'
+                        ? `<img src="/preview/image/${result.filename}" style="width: 50px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;">`
+                        : `<video style="width: 50px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;"><source src="/preview/video/${result.filename}" type="video/mp4"></video>`;
+
+                    item.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: space-between; color: #155724;">
+                            <div style="display: flex; align-items: center;">
+                                ${previewHtml}
+                                <div>
+                                    <div style="font-weight: 600;">${result.filename}</div>
+                                    <div style="font-size: 14px; margin-top: 5px;">
+                                        Size: ${formatFileSize(result.size)} |
+                                        Path: ${result.local_path}
+                                        ${result.gcs_url ? ' | ☁️ Uploaded to GCS' : ' | ⚠️ Local only'}
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn btn-small" onclick="deleteUploadedFile('${result.local_path}', '${fileType}', this)"
+                                    style="background: #dc3545; color: white; margin-left: 15px;">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    `;
+                }
+
+                resultsElement.appendChild(item);
+            });
+        }
+
+        function updateUploadSummary() {
+            const summaryElement = document.getElementById('upload-summary');
+
+            if (uploadedFiles.length === 0) {
+                summaryElement.innerHTML = '<p style="color: #666;">No files uploaded yet</p>';
+                return;
+            }
+
+            const imageCount = uploadedFiles.filter(f => !f.error && f.filename.match(/\.(png|jpg|jpeg|gif|bmp|webp)$/i)).length;
+            const videoCount = uploadedFiles.filter(f => !f.error && f.filename.match(/\.(mp4|avi|mov|mkv|wmv|flv|webm)$/i)).length;
+            const errorCount = uploadedFiles.filter(f => f.error).length;
+
+            const totalSize = uploadedFiles
+                .filter(f => !f.error)
+                .reduce((sum, f) => sum + (f.size || 0), 0);
+
+            summaryElement.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: 600; color: #667eea;">${imageCount}</div>
+                        <div style="font-size: 14px; color: #666;">Images</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: 600; color: #667eea;">${videoCount}</div>
+                        <div style="font-size: 14px; color: #666;">Videos</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: 600; color: #28a745;">${formatFileSize(totalSize)}</div>
+                        <div style="font-size: 14px; color: #666;">Total Size</div>
+                    </div>
+                    ${errorCount > 0 ? `
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: 600; color: #dc3545;">${errorCount}</div>
+                        <div style="font-size: 14px; color: #666;">Errors</div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Delete file function
+        async function deleteUploadedFile(filePath, fileType, buttonElement) {
+            if (!confirm(`Are you sure you want to delete this ${fileType}? This action cannot be undone.`)) {
+                return;
+            }
+
+            // Disable button during deletion
+            buttonElement.disabled = true;
+            buttonElement.textContent = 'Deleting...';
+
+            try {
+                const response = await fetch('/api/delete-file', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        file_path: filePath,
+                        file_type: fileType
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Remove the file from the uploadedFiles array
+                    uploadedFiles = uploadedFiles.filter(file => file.local_path !== filePath);
+
+                    // Remove the UI element
+                    const container = buttonElement.closest('div[style*="margin: 10px 0"]');
+                    if (container) {
+                        container.style.transition = 'all 0.3s ease';
+                        container.style.opacity = '0';
+                        container.style.transform = 'translateX(-20px)';
+                        setTimeout(() => container.remove(), 300);
+                    }
+
+                    // Update summary
+                    updateUploadSummary();
+
+                    // Refresh the uploaded files lists
+                    loadUploadedFiles();
+
+                    // Show success message
+                    alert(`File deleted successfully: ${result.message}`);
+                } else {
+                    throw new Error(result.error || 'Failed to delete file');
+                }
+            } catch (error) {
+                alert(`Error deleting file: ${error.message}`);
+                // Re-enable button on error
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = '🗑️ Delete';
+            }
+        }
+
+        // Load uploaded files for management section
+        async function loadUploadedFiles() {
+            try {
+                // Load images
+                const imagesResponse = await fetch('/api/list-images');
+                const imagesData = await imagesResponse.json();
+
+                // Load videos
+                const videosResponse = await fetch('/api/list-videos');
+                const videosData = await videosResponse.json();
+
+                displayUploadedFiles(imagesData.images || [], 'image');
+                displayUploadedFiles(videosData.videos || [], 'video');
+
+            } catch (error) {
+                console.error('Error loading uploaded files:', error);
+            }
+        }
+
+        function displayUploadedFiles(files, fileType) {
+            const container = document.getElementById(`uploaded-${fileType}s-list`);
+            container.innerHTML = '';
+
+            if (files.length === 0) {
+                container.innerHTML = `<p style="text-align: center; color: #666; padding: 20px;">No ${fileType}s uploaded yet</p>`;
+                return;
+            }
+
+            files.forEach(file => {
+                const item = document.createElement('div');
+                item.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin: 8px 0; padding: 12px; background: white; border-radius: 6px; border: 1px solid #e1e1e1;';
+
+                const previewHtml = fileType === 'image'
+                    ? `<img src="/preview/image/${file.name}" style="width: 50px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;" onclick="previewImage('${file.name}')">`
+                    : `<video style="width: 50px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;" onmouseover="this.play()" onmouseout="this.pause()" onclick="previewVideo('${file.name}')"><source src="/preview/video/${file.name}" type="video/mp4"></video>`;
+
+                item.innerHTML = `
+                    <div style="display: flex; align-items: center; flex: 1;">
+                        ${previewHtml}
+                        <div>
+                            <div style="font-weight: 600; font-size: 14px;">${file.name}</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 3px;">
+                                Size: ${formatFileSize(file.size)} |
+                                Created: ${new Date(file.created * 1000).toLocaleDateString()}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-small" onclick="copyToClipboard('${file.path}')" style="background: #6c757d;">📋 Copy Path</button>
+                        <button class="btn btn-small" onclick="deleteUploadedFile('${file.path}', '${fileType}', this)" style="background: #dc3545; color: white;">🗑️ Delete</button>
+                    </div>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        // This function is consolidated into the main showTab function below
+
+        // Video from Image preview functions
+        async function loadImagesForVideoGeneration() {
+            try {
+                const response = await fetch('/api/list-images');
+                const data = await response.json();
+
+                const container = document.getElementById('video-images-list');
+                container.innerHTML = '';
+
+                if (data.images && data.images.length > 0) {
+                    data.images.forEach(image => {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'display: flex; align-items: center; margin: 8px 0; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e1e1e1; cursor: pointer;';
+                        item.onclick = () => selectImageForVideoGeneration(image.path, image.name);
+                        item.innerHTML = `
+                            <img style="width: 50px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;"
+                                 src="/preview/image/${image.name}" alt="${image.name}">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 14px;">${image.name}</div>
+                                <div style="font-size: 12px; color: #666;">${formatFileSize(image.size)}</div>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No images found</p>';
+                }
+            } catch (error) {
+                console.error('Error loading images for video generation:', error);
+            }
+        }
+
+        function selectImageForVideoGeneration(imagePath, imageName) {
+            document.getElementById('video-image-path').value = imagePath;
+            previewSelectedImageForVideo();
+        }
+
+        function previewSelectedImageForVideo() {
+            const imagePath = document.getElementById('video-image-path').value;
+            const previewContainer = document.getElementById('video-image-preview');
+
+            if (imagePath) {
+                // Extract filename from path
+                const filename = imagePath.split('/').pop();
+                previewContainer.innerHTML = `
+                    <img src="/preview/image/${filename}"
+                         style="max-width: 100%; max-height: 300px; border-radius: 8px; cursor: pointer;"
+                         onclick="previewImage('${filename}')"
+                         onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4='; this.alt='Image not found';">
+                    <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                        Selected for video generation - Click to view full size
+                    </p>
+                    <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 6px;">
+                        <p style="font-size: 12px; color: #1976d2; margin: 0;">
+                            💡 <strong>Tip:</strong> This image will be used as the starting frame for your video animation.
+                            Describe the motion or changes you want to see in the video prompt below.
+                        </p>
+                    </div>
+                `;
+            } else {
+                previewContainer.innerHTML = '<p style="color: #666; margin-top: 80px;">Select an image to see preview</p>';
+            }
+        }
+
+        // Prompt Refinement
+        document.getElementById('refine-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const originalPrompt = document.getElementById('original-prompt').value;
+            const refinementFocus = document.getElementById('refinement-focus').value;
+
+            document.getElementById('refine-loading').style.display = 'block';
+            document.getElementById('refine-result').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/refine-prompt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        original_prompt: originalPrompt,
+                        focus: refinementFocus
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+
+                // Display the refined prompt
+                document.getElementById('refined-prompt-text').textContent = result.refined_prompt;
+                document.getElementById('explanation-text').textContent = result.explanation || 'Prompt has been improved with better structure, details, and technical specifications.';
+                document.getElementById('refine-result').style.display = 'block';
+
+                // Store for later use
+                window.lastRefinedPrompt = result.refined_prompt;
+
+            } catch (error) {
+                alert(`Error refining prompt: ${error.message}`);
+            } finally {
+                document.getElementById('refine-loading').style.display = 'none';
+            }
+        });
+
+        function copyRefinedPrompt() {
+            const refinedPrompt = document.getElementById('refined-prompt-text').textContent;
+            navigator.clipboard.writeText(refinedPrompt).then(() => {
+                alert('Refined prompt copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy to clipboard. Please select and copy manually.');
+            });
+        }
+
+        function useRefinedPrompt() {
+            const refinedPrompt = document.getElementById('refined-prompt-text').textContent;
+
+            // Manually handle tab switching
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show video generation tab
+            document.getElementById('video-gen').classList.add('active');
+            document.querySelector('button[onclick="showTab(\'video-gen\')"]').classList.add('active');
+
+            // Fill in the prompt
+            document.getElementById('video-prompt').value = refinedPrompt;
+
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            alert('Refined prompt has been applied to Video Generation tab!');
+        }
+
+        // Configuration Management
+        let currentConfig = {};
+
+        async function loadConfiguration() {
+            document.getElementById('config-loading').style.display = 'block';
+            document.getElementById('config-content').style.display = 'none';
+            document.getElementById('config-error').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+
+                if (config.error) {
+                    throw new Error(config.error);
+                }
+
+                currentConfig = config;
+                populateConfigurationForm(config);
+
+                document.getElementById('config-content').style.display = 'block';
+            } catch (error) {
+                showConfigError(`Failed to load configuration: ${error.message}`);
+            } finally {
+                document.getElementById('config-loading').style.display = 'none';
+            }
+        }
+
+        function populateConfigurationForm(config) {
+            // Models (read-only)
+            document.getElementById('config-video-model').value = config.models?.video_generation?.model_id || '';
+            document.getElementById('video-model-desc').textContent = config.models?.video_generation?.description || '';
+
+            document.getElementById('config-image-model').value = config.models?.image_generation?.model_id || '';
+            document.getElementById('image-model-desc').textContent = config.models?.image_generation?.description || '';
+
+            document.getElementById('config-edit-model').value = config.models?.image_editing?.model_id || '';
+            document.getElementById('edit-model-desc').textContent = config.models?.image_editing?.description || '';
+
+            document.getElementById('config-refine-model').value = config.models?.prompt_refinement?.model_id || '';
+            document.getElementById('refine-model-desc').textContent = config.models?.prompt_refinement?.description || '';
+
+            // Generation Settings
+            document.getElementById('config-default-resolution').value = config.generation_settings?.video?.default_resolution || '1080p';
+            document.getElementById('config-default-aspect').value = config.generation_settings?.video?.default_aspect_ratio || '16:9';
+            document.getElementById('config-video-timeout').value = config.generation_settings?.video?.timeout_seconds || 300;
+            document.getElementById('config-retry-attempts').value = config.generation_settings?.video?.retry_attempts || 3;
+
+            // Features
+            document.getElementById('config-prompt-refinement').checked = config.features?.ai_features?.prompt_refinement_enabled || false;
+            document.getElementById('config-negative-prompts').checked = config.features?.ai_features?.negative_prompts_enabled || false;
+            document.getElementById('config-ffmpeg').checked = config.features?.video_tools?.ffmpeg_enabled || false;
+
+            // File Settings (read-only)
+            document.getElementById('config-max-file-size').value = config.file_handling?.upload?.max_file_size_mb || '';
+            document.getElementById('config-output-dir').value = config.file_handling?.storage?.local_output_dir || '';
+            document.getElementById('config-gcs-threshold').value = config.file_handling?.storage?.gcs_upload_threshold_mb || '';
+
+            // UI Settings
+            document.getElementById('config-default-tab').value = config.ui_settings?.tabs?.default_tab || 'video-gen';
+            document.getElementById('config-primary-color').value = config.ui_settings?.theme?.primary_color || '#667eea';
+        }
+
+        async function updateConfig(key, value) {
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ [key]: value })
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+
+                // Update local config
+                setNestedValue(currentConfig, key, value);
+
+                // Show success feedback
+                showConfigSuccess('Setting updated successfully!');
+
+            } catch (error) {
+                showConfigError(`Failed to update setting: ${error.message}`);
+                // Revert the change in UI
+                await loadConfiguration();
+            }
+        }
+
+        function setNestedValue(obj, path, value) {
+            const keys = path.split('.');
+            let current = obj;
+
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (!(keys[i] in current)) {
+                    current[keys[i]] = {};
+                }
+                current = current[keys[i]];
+            }
+
+            current[keys[keys.length - 1]] = value;
+        }
+
+        async function saveConfiguration() {
+            try {
+                // Configuration is automatically saved with each change
+                showConfigSuccess('Configuration is automatically saved with each change!');
+            } catch (error) {
+                showConfigError(`Failed to save configuration: ${error.message}`);
+            }
+        }
+
+        async function resetConfiguration() {
+            if (!confirm('Are you sure you want to reset configuration to defaults? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                // This would require an additional API endpoint for resetting
+                showConfigError('Reset functionality not yet implemented. Please manually edit config.json.');
+            } catch (error) {
+                showConfigError(`Failed to reset configuration: ${error.message}`);
+            }
+        }
+
+        function exportConfiguration() {
+            try {
+                const configBlob = new Blob([JSON.stringify(currentConfig, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(configBlob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'video-studio-config.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showConfigSuccess('Configuration exported successfully!');
+            } catch (error) {
+                showConfigError(`Failed to export configuration: ${error.message}`);
+            }
+        }
+
+        function showConfigError(message) {
+            document.getElementById('config-error-message').textContent = message;
+            document.getElementById('config-error').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('config-error').style.display = 'none';
+            }, 5000);
+        }
+
+        function showConfigSuccess(message) {
+            // Create a temporary success message
+            const successDiv = document.createElement('div');
+            successDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 8px; z-index: 1000;';
+            successDiv.innerHTML = `<strong>Success:</strong> ${message}`;
+            document.body.appendChild(successDiv);
+
+            setTimeout(() => {
+                document.body.removeChild(successDiv);
+            }, 3000);
+        }
+
+        // Text Overlay Functions
+        let currentImageDimensions = { width: 0, height: 0 };
+        let textPosition = { x: 50, y: 50 }; // Percentage positions
+        let isDragging = false;
+
+        function loadImageForOverlay() {
+            const imagePath = document.getElementById('overlay-image-path').value;
+            if (!imagePath) return;
+
+            const filename = imagePath.split('/').pop();
+            const previewImage = document.getElementById('preview-image');
+            const noImageMessage = document.getElementById('no-image-message');
+            const previewText = document.getElementById('preview-text');
+
+            previewImage.src = `/preview/image/${filename}`;
+            previewImage.onload = function() {
+                noImageMessage.style.display = 'none';
+                previewImage.style.display = 'block';
+
+                // Store image dimensions for calculations
+                currentImageDimensions.width = this.naturalWidth;
+                currentImageDimensions.height = this.naturalHeight;
+
+                // Show and position text
+                previewText.style.display = 'block';
+                updateTextPreview();
+                setTextPosition('center');
+            };
+
+            previewImage.onerror = function() {
+                noImageMessage.style.display = 'flex';
+                previewImage.style.display = 'none';
+                previewText.style.display = 'none';
+            };
+        }
+
+        function updateTextPreview() {
+            const previewText = document.getElementById('preview-text');
+            const overlayText = document.getElementById('overlay-text').value || 'Sample Text';
+
+            // Update text content
+            previewText.textContent = overlayText;
+
+            // Update font styling
+            const fontFamily = document.getElementById('text-font-family').value;
+            const fontSize = document.getElementById('text-font-size').value;
+            const fontColor = document.getElementById('text-color').value;
+            const fontWeight = document.getElementById('text-weight').value;
+
+            document.getElementById('font-size-display').textContent = fontSize + 'px';
+
+            previewText.style.fontFamily = fontFamily;
+            previewText.style.fontSize = (fontSize * 0.5) + 'px'; // Scale down for preview
+            previewText.style.color = fontColor;
+            previewText.style.fontWeight = fontWeight;
+
+            // Update background
+            const hasBackground = document.getElementById('text-background').checked;
+            if (hasBackground) {
+                const bgColor = document.getElementById('bg-color').value;
+                const bgOpacity = document.getElementById('bg-opacity').value;
+                document.getElementById('bg-opacity-display').textContent = bgOpacity + '%';
+
+                const r = parseInt(bgColor.substr(1,2), 16);
+                const g = parseInt(bgColor.substr(3,2), 16);
+                const b = parseInt(bgColor.substr(5,2), 16);
+                previewText.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${bgOpacity/100})`;
+            } else {
+                previewText.style.backgroundColor = 'transparent';
+            }
+
+            // Update shadow
+            const hasShadow = document.getElementById('text-shadow').checked;
+            if (hasShadow) {
+                const shadowColor = document.getElementById('shadow-color').value;
+                const shadowBlur = document.getElementById('shadow-blur').value;
+                document.getElementById('shadow-blur-display').textContent = shadowBlur + 'px';
+                previewText.style.textShadow = `2px 2px ${shadowBlur}px ${shadowColor}`;
+            } else {
+                previewText.style.textShadow = 'none';
+            }
+        }
+
+        function setTextPosition(position) {
+            const previewText = document.getElementById('preview-text');
+
+            // Reset transform
+            previewText.style.transform = 'none';
+
+            switch(position) {
+                case 'top-left':
+                    textPosition = { x: 5, y: 5 };
+                    break;
+                case 'top-center':
+                    textPosition = { x: 50, y: 5 };
+                    previewText.style.transform = 'translateX(-50%)';
+                    break;
+                case 'top-right':
+                    textPosition = { x: 95, y: 5 };
+                    previewText.style.transform = 'translateX(-100%)';
+                    break;
+                case 'center-left':
+                    textPosition = { x: 5, y: 50 };
+                    previewText.style.transform = 'translateY(-50%)';
+                    break;
+                case 'center':
+                    textPosition = { x: 50, y: 50 };
+                    previewText.style.transform = 'translate(-50%, -50%)';
+                    break;
+                case 'center-right':
+                    textPosition = { x: 95, y: 50 };
+                    previewText.style.transform = 'translate(-100%, -50%)';
+                    break;
+                case 'bottom-left':
+                    textPosition = { x: 5, y: 95 };
+                    previewText.style.transform = 'translateY(-100%)';
+                    break;
+                case 'bottom-center':
+                    textPosition = { x: 50, y: 95 };
+                    previewText.style.transform = 'translate(-50%, -100%)';
+                    break;
+                case 'bottom-right':
+                    textPosition = { x: 95, y: 95 };
+                    previewText.style.transform = 'translate(-100%, -100%)';
+                    break;
+            }
+
+            previewText.style.left = textPosition.x + '%';
+            previewText.style.top = textPosition.y + '%';
+        }
+
+        function toggleTextBackground() {
+            const checkbox = document.getElementById('text-background');
+            const options = document.getElementById('background-options');
+            options.style.display = checkbox.checked ? 'block' : 'none';
+            updateTextPreview();
+        }
+
+        function toggleTextShadow() {
+            const checkbox = document.getElementById('text-shadow');
+            const options = document.getElementById('shadow-options');
+            options.style.display = checkbox.checked ? 'block' : 'none';
+            updateTextPreview();
+        }
+
+        // Drag and drop functionality for text positioning
+        document.addEventListener('DOMContentLoaded', function() {
+            const previewText = document.getElementById('preview-text');
+
+            previewText.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                const rect = document.getElementById('text-preview-container').getBoundingClientRect();
+
+                const moveHandler = function(e) {
+                    if (!isDragging) return;
+
+                    const containerRect = document.getElementById('text-preview-container').getBoundingClientRect();
+                    const x = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+                    const y = ((e.clientY - containerRect.top) / containerRect.height) * 100;
+
+                    // Constrain to container bounds
+                    textPosition.x = Math.max(0, Math.min(100, x));
+                    textPosition.y = Math.max(0, Math.min(100, y));
+
+                    previewText.style.left = textPosition.x + '%';
+                    previewText.style.top = textPosition.y + '%';
+                };
+
+                const upHandler = function() {
+                    isDragging = false;
+                    document.removeEventListener('mousemove', moveHandler);
+                    document.removeEventListener('mouseup', upHandler);
+                };
+
+                document.addEventListener('mousemove', moveHandler);
+                document.addEventListener('mouseup', upHandler);
+
+                e.preventDefault();
+            });
+        });
+
+        // Text Overlay Form Submission
+        document.getElementById('text-overlay-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const imagePath = document.getElementById('overlay-image-path').value;
+            const text = document.getElementById('overlay-text').value;
+
+            if (!imagePath || !text) {
+                alert('Please select an image and enter text');
+                return;
+            }
+
+            document.getElementById('overlay-loading').style.display = 'block';
+            document.getElementById('overlay-result').style.display = 'none';
+
+            try {
+                // Collect all text styling options
+                const textOptions = {
+                    image_path: imagePath,
+                    text: text,
+                    position: {
+                        x: textPosition.x,
+                        y: textPosition.y
+                    },
+                    font_family: document.getElementById('text-font-family').value,
+                    font_size: parseInt(document.getElementById('text-font-size').value),
+                    font_color: document.getElementById('text-color').value,
+                    font_weight: document.getElementById('text-weight').value,
+                    background: {
+                        enabled: document.getElementById('text-background').checked,
+                        color: document.getElementById('bg-color').value,
+                        opacity: parseInt(document.getElementById('bg-opacity').value)
+                    },
+                    shadow: {
+                        enabled: document.getElementById('text-shadow').checked,
+                        color: document.getElementById('shadow-color').value,
+                        blur: parseInt(document.getElementById('shadow-blur').value)
+                    },
+                    image_dimensions: currentImageDimensions
+                };
+
+                const response = await fetch('/api/add-text-overlay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(textOptions)
+                });
+
+                const result = await response.json();
+                displayResult('overlay-result', result);
+            } catch (error) {
+                displayResult('overlay-result', { error: error.message });
+            } finally {
+                document.getElementById('overlay-loading').style.display = 'none';
+            }
+        });
+
+        // Load images for text overlay tab
+        async function loadImagesForTextOverlay() {
+            try {
+                const response = await fetch('/api/list-images');
+                const data = await response.json();
+
+                const container = document.getElementById('overlay-images-list');
+                container.innerHTML = '';
+
+                if (data.images && data.images.length > 0) {
+                    data.images.forEach(image => {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'display: flex; align-items: center; margin: 8px 0; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e1e1e1; cursor: pointer;';
+                        item.onclick = () => selectImageForTextOverlay(image.path, image.name);
+                        item.innerHTML = `
+                            <img style="width: 50px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;"
+                                 src="/preview/image/${image.name}" alt="${image.name}">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 14px;">${image.name}</div>
+                                <div style="font-size: 12px; color: #666;">${formatFileSize(image.size)}</div>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No images found</p>';
+                }
+            } catch (error) {
+                console.error('Error loading images for text overlay:', error);
+            }
+        }
+
+        function selectImageForTextOverlay(imagePath, imageName) {
+            document.getElementById('overlay-image-path').value = imagePath;
+            loadImageForOverlay();
+        }
+
+        // Image Style Mixing Functions
+        let selectedImagesForMixing = [];
+        const maxSelectedImages = 5;
+
+        async function loadImagesForMixing() {
+            try {
+                const response = await fetch('/api/list-images');
+                const data = await response.json();
+
+                const container = document.getElementById('mixing-images-gallery');
+                container.innerHTML = '';
+
+                if (data.images && data.images.length > 0) {
+                    data.images.forEach((image, index) => {
+                        const item = document.createElement('div');
+                        item.style.cssText = 'position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; border: 2px solid transparent; transition: all 0.3s ease;';
+                        item.dataset.imagePath = image.path;
+                        item.dataset.imageName = image.name;
+                        item.dataset.imageIndex = index;
+
+                        item.innerHTML = `
+                            <img style="width: 100%; height: 120px; object-fit: cover;" src="/preview/image/${image.name}" alt="${image.name}">
+                            <div style="position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                                ${index + 1}
+                            </div>
+                            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); color: white; padding: 8px; font-size: 12px; font-weight: 500;">
+                                ${image.name}
+                            </div>
+                            <div class="selection-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(102, 126, 234, 0.8); display: none; align-items: center; justify-content: center;">
+                                <div style="background: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #667eea;">
+                                    ✓
+                                </div>
+                            </div>
+                        `;
+
+                        item.addEventListener('click', () => toggleImageSelection(image, item));
+                        container.appendChild(item);
+                    });
+                } else {
+                    container.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #666; padding: 40px;">No images found</p>';
+                }
+            } catch (error) {
+                console.error('Error loading images for mixing:', error);
+            }
+        }
+
+        function toggleImageSelection(image, element) {
+            const isSelected = selectedImagesForMixing.some(img => img.path === image.path);
+
+            if (isSelected) {
+                // Remove from selection
+                selectedImagesForMixing = selectedImagesForMixing.filter(img => img.path !== image.path);
+                element.style.borderColor = 'transparent';
+                element.querySelector('.selection-overlay').style.display = 'none';
+            } else {
+                // Add to selection (if under limit)
+                if (selectedImagesForMixing.length >= maxSelectedImages) {
+                    alert(`You can select up to ${maxSelectedImages} images maximum`);
+                    return;
+                }
+
+                selectedImagesForMixing.push({
+                    ...image,
+                    index: selectedImagesForMixing.length + 1
+                });
+                element.style.borderColor = '#667eea';
+                element.querySelector('.selection-overlay').style.display = 'flex';
+            }
+
+            updateSelectedImagesPreview();
+        }
+
+        function updateSelectedImagesPreview() {
+            const container = document.getElementById('selected-images-preview');
+            const countElement = document.getElementById('selected-count');
+            const noImagesElement = document.getElementById('no-images-selected');
+
+            countElement.textContent = selectedImagesForMixing.length;
+
+            if (selectedImagesForMixing.length === 0) {
+                noImagesElement.style.display = 'block';
+                return;
+            }
+
+            noImagesElement.style.display = 'none';
+            container.innerHTML = '';
+
+            selectedImagesForMixing.forEach((image, index) => {
+                const preview = document.createElement('div');
+                preview.style.cssText = 'position: relative; border-radius: 6px; overflow: hidden; border: 2px solid #28a745;';
+                preview.innerHTML = `
+                    <img style="width: 100%; height: 80px; object-fit: cover;" src="/preview/image/${image.name}" alt="${image.name}">
+                    <div style="position: absolute; top: 2px; left: 2px; background: #28a745; color: white; padding: 1px 4px; border-radius: 3px; font-size: 10px; font-weight: 600;">
+                        ${index + 1}
+                    </div>
+                    <button onclick="removeImageFromSelection('${image.path}')" style="position: absolute; top: 2px; right: 2px; background: #dc3545; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: white; padding: 2px; font-size: 9px; text-align: center;">
+                        Image ${index + 1}
+                    </div>
+                `;
+                container.appendChild(preview);
+            });
+        }
+
+        function removeImageFromSelection(imagePath) {
+            selectedImagesForMixing = selectedImagesForMixing.filter(img => img.path !== imagePath);
+
+            // Update gallery highlighting
+            document.querySelectorAll('#mixing-images-gallery > div').forEach(item => {
+                if (item.dataset.imagePath === imagePath) {
+                    item.style.borderColor = 'transparent';
+                    item.querySelector('.selection-overlay').style.display = 'none';
+                }
+            });
+
+            updateSelectedImagesPreview();
+        }
+
+        function clearSelectedImages() {
+            selectedImagesForMixing = [];
+
+            // Clear all highlights
+            const gallery = document.getElementById('mixing-images-gallery');
+            if (gallery) {
+                gallery.querySelectorAll('div[data-image-path]').forEach(item => {
+                    item.style.borderColor = 'transparent';
+                    item.style.border = '2px solid transparent';
+                    const overlay = item.querySelector('.selection-overlay');
+                    if (overlay) overlay.style.display = 'none';
+                });
+            }
+
+            updateSelectedImagesPreview();
+        }
+
+        function randomSelectImages() {
+            clearSelectedImages();
+
+            const allItems = Array.from(document.querySelectorAll('#mixing-images-gallery > div')).filter(item => item.dataset.imagePath);
+            const numToSelect = Math.min(3, allItems.length); // Select 3 random images
+
+            for (let i = 0; i < numToSelect; i++) {
+                const randomIndex = Math.floor(Math.random() * allItems.length);
+                const item = allItems[randomIndex];
+
+                if (item && !selectedImagesForMixing.some(img => img.path === item.dataset.imagePath)) {
+                    const image = {
+                        path: item.dataset.imagePath,
+                        name: item.dataset.imageName
+                    };
+
+                    selectedImagesForMixing.push({
+                        ...image,
+                        index: selectedImagesForMixing.length + 1
+                    });
+
+                    item.style.borderColor = '#667eea';
+                    item.querySelector('.selection-overlay').style.display = 'flex';
+                }
+            }
+
+            updateSelectedImagesPreview();
+        }
+
+        function selectAllImages() {
+            clearSelectedImages();
+
+            const allItems = Array.from(document.querySelectorAll('#mixing-images-gallery > div')).filter(item => item.dataset.imagePath);
+            const numToSelect = Math.min(maxSelectedImages, allItems.length);
+
+            for (let i = 0; i < numToSelect; i++) {
+                const item = allItems[i];
+                const image = {
+                    path: item.dataset.imagePath,
+                    name: item.dataset.imageName
+                };
+
+                selectedImagesForMixing.push({
+                    ...image,
+                    index: selectedImagesForMixing.length + 1
+                });
+
+                item.style.borderColor = '#667eea';
+                item.querySelector('.selection-overlay').style.display = 'flex';
+            }
+
+            updateSelectedImagesPreview();
+        }
+
+        // Style Mixing Form Submission
+        document.getElementById('style-mixing-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const prompt = document.getElementById('mixing-prompt').value;
+            const mode = document.getElementById('mixing-mode').value;
+
+            if (selectedImagesForMixing.length < 2) {
+                alert('Please select at least 2 images for style mixing');
+                return;
+            }
+
+            document.getElementById('mixing-loading').style.display = 'block';
+            document.getElementById('mixing-result').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/mix-image-styles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        images: selectedImagesForMixing.map(img => img.path),
+                        prompt: prompt,
+                        mode: mode
+                    })
+                });
+
+                const result = await response.json();
+                displayStyleMixingResult(result);
+            } catch (error) {
+                displayStyleMixingResult({ error: error.message });
+            } finally {
+                document.getElementById('mixing-loading').style.display = 'none';
+            }
+        });
+
+        function displayStyleMixingResult(result) {
+            const element = document.getElementById('mixing-result');
+            element.style.display = 'block';
+
+            if (result.error) {
+                element.className = 'result error';
+                element.innerHTML = `<strong>Error:</strong> ${result.error}`;
+                return;
+            }
+
+            element.className = 'result success';
+            let html = '<strong>🎨 Style Mixing Complete!</strong><br><br>';
+
+            if (result.style_analysis) {
+                html += `<div style="background: #e8f5e8; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                html += `<h4 style="color: #2e7d32; margin-bottom: 10px;">📊 Style Analysis</h4>`;
+                html += `<div style="white-space: pre-wrap; line-height: 1.6;">${result.style_analysis}</div>`;
+                html += `</div>`;
+            }
+
+            if (result.combination_guide) {
+                html += `<div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                html += `<h4 style="color: #1976d2; margin-bottom: 10px;">🎭 Style Combination Guide</h4>`;
+                html += `<div style="white-space: pre-wrap; line-height: 1.6;">${result.combination_guide}</div>`;
+                html += `</div>`;
+            }
+
+            if (result.individual_analyses && result.individual_analyses.length > 0) {
+                html += `<div style="background: #f3e5f5; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                html += `<h4 style="color: #7b1fa2; margin-bottom: 10px;">🔍 Individual Image Analysis</h4>`;
+                result.individual_analyses.forEach((analysis, index) => {
+                    html += `<div style="margin-bottom: 10px; padding: 10px; background: white; border-radius: 4px;">`;
+                    html += `<strong>Image ${index + 1}:</strong><br>`;
+                    html += `<div style="margin-top: 5px; font-size: 14px;">${analysis}</div>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            }
+
+            if (result.images_used) {
+                html += `<div style="background: #fff3cd; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                html += `<h4 style="color: #856404; margin-bottom: 10px;">📸 Images Analyzed</h4>`;
+                html += `<strong>Number of images:</strong> ${result.images_used}<br>`;
+                html += `<strong>Processing mode:</strong> ${result.mode}`;
+                html += `</div>`;
+            }
+
+            element.innerHTML = html;
+        }
+
+        // Update showTab function to load style mixing images
+        const originalShowTab = window.showTab;
+        window.showTab = function(tabName) {
+            originalShowTab(tabName);
+
+            if (tabName === 'text-overlay') {
+                loadImagesForTextOverlay();
+            } else if (tabName === 'style-mixing') {
+                loadImagesForMixing();
+            }
+        };
+
+        // showTab function is now consolidated above (removed duplicate)
+
+        // Load initial data
+        loadVideos();
+        loadImages();
+    </script>
+</body>
+</html>

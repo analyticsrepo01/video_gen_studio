@@ -1,0 +1,18 @@
+# Core Web Framework
+Flask==3.0.0
+flask-cors==4.0.0
+
+# Google Cloud Services
+google-cloud-storage==2.13.0
+google-cloud-aiplatform==1.38.1
+vertexai==1.38.1
+google-genai==0.7.2
+
+# Environment Management
+python-dotenv==1.0.0
+
+# Image Processing
+Pillow==10.1.0
+
+# FFmpeg for video processing (system dependency)
+# Install separately: apt-get install ffmpeg (Ubuntu) or brew install ffmpeg (macOS)
