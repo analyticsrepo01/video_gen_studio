@@ -1347,43 +1347,69 @@ def mix_image_styles():
 
         # Validate that all image files exist
         for image_path in image_paths:
-            # Debug logging
-            print(f"🔍 Processing image_path: {image_path}")
-            print(f"🔍 config.local_output_dir: {config.local_output_dir}")
+            # Try multiple possible paths with fallback
+            possible_paths = [
+                image_path,  # Use as-is (for absolute paths or correct relative paths)
+                os.path.join(config.local_output_dir, image_path),  # Join with output dir
+                os.path.join(os.getcwd(), image_path),  # Join with current working directory
+                os.path.join(os.getcwd(), config.local_output_dir, image_path),  # Full path from cwd
+            ]
 
-            # Handle both full paths and relative paths
-            if os.path.isabs(image_path):
-                full_path = image_path
-                print(f"🔍 Using absolute path: {full_path}")
-            elif image_path.startswith('output/'):
-                # Path already includes output directory
-                full_path = image_path
-                print(f"🔍 Using output-prefixed path: {full_path}")
-            else:
-                # Relative path needs to be joined with output directory
-                full_path = os.path.join(config.local_output_dir, image_path)
-                print(f"🔍 Joined path: {full_path}")
+            # If path starts with output/, also try without the output prefix
+            if image_path.startswith('output/'):
+                relative_path = image_path[7:]  # Remove 'output/' prefix
+                possible_paths.extend([
+                    relative_path,
+                    os.path.join(config.local_output_dir, relative_path),
+                    os.path.join(os.getcwd(), config.local_output_dir, relative_path),
+                ])
 
-            print(f"🔍 Final full_path: {full_path}")
-            print(f"🔍 File exists: {os.path.exists(full_path)}")
+            # Find the first path that exists
+            full_path = None
+            for try_path in possible_paths:
+                if os.path.exists(try_path):
+                    full_path = try_path
+                    print(f"✅ Found image at: {full_path}")
+                    break
 
-            if not os.path.exists(full_path):
-                return jsonify({'error': f'Image not found: {image_path}'}), 404
+            if not full_path:
+                # Debug: show all attempted paths
+                print(f"❌ Could not find image: {image_path}")
+                print(f"❌ Tried paths: {possible_paths}")
+                return jsonify({'error': f'Image not found: {image_path}. Tried: {possible_paths}'}), 404
 
         # Prepare content for Gemini
         contents = []
 
         # Add images to the content
         for i, image_path in enumerate(image_paths):
-            # Handle both full paths and relative paths
-            if os.path.isabs(image_path):
-                full_path = image_path
-            elif image_path.startswith('output/'):
-                # Path already includes output directory
-                full_path = image_path
-            else:
-                # Relative path needs to be joined with output directory
-                full_path = os.path.join(config.local_output_dir, image_path)
+            # Try multiple possible paths with fallback (same logic as validation)
+            possible_paths = [
+                image_path,  # Use as-is
+                os.path.join(config.local_output_dir, image_path),  # Join with output dir
+                os.path.join(os.getcwd(), image_path),  # Join with current working directory
+                os.path.join(os.getcwd(), config.local_output_dir, image_path),  # Full path from cwd
+            ]
+
+            # If path starts with output/, also try without the output prefix
+            if image_path.startswith('output/'):
+                relative_path = image_path[7:]  # Remove 'output/' prefix
+                possible_paths.extend([
+                    relative_path,
+                    os.path.join(config.local_output_dir, relative_path),
+                    os.path.join(os.getcwd(), config.local_output_dir, relative_path),
+                ])
+
+            # Find the first path that exists
+            full_path = None
+            for try_path in possible_paths:
+                if os.path.exists(try_path):
+                    full_path = try_path
+                    break
+
+            if not full_path:
+                # This shouldn't happen since we validated earlier, but just in case
+                raise FileNotFoundError(f"Image not found: {image_path}")
 
             with open(full_path, 'rb') as f:
                 image_data = f.read()
