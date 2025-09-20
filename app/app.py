@@ -1555,21 +1555,101 @@ Please provide detailed guidance in JSON format:
             config=generate_content_config
         )
 
+        # Parse the response - handle markdown code blocks and other formatting
+        def parse_gemini_response(text):
+            """Parse Gemini response, extracting JSON from markdown or plain text"""
+            import json
+            import re
+
+            # Try parsing as direct JSON first
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                pass
+
+            # Look for JSON in markdown code blocks
+            json_patterns = [
+                r'```json\s*\n(.*?)\n```',  # ```json ... ```
+                r'```\s*\n(.*?)\n```',     # ``` ... ```
+                r'`([^`]*)`',              # `...`
+            ]
+
+            for pattern in json_patterns:
+                matches = re.findall(pattern, text, re.DOTALL)
+                for match in matches:
+                    try:
+                        return json.loads(match.strip())
+                    except json.JSONDecodeError:
+                        continue
+
+            # Look for JSON-like objects in the text
+            json_like = re.search(r'\{.*\}', text, re.DOTALL)
+            if json_like:
+                try:
+                    return json.loads(json_like.group())
+                except json.JSONDecodeError:
+                    pass
+
+            # If no JSON found, return structured format from raw text
+            return {
+                'raw_response': text,
+                'note': 'Could not extract JSON, showing raw response',
+                'parsed': False
+            }
+
         # Try to parse JSON response
         try:
             import json
-            result = json.loads(response.text)
+            result = parse_gemini_response(response.text)
+
+            # Save the analysis to a file
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            analysis_filename = f"{config.local_output_dir}/images/style_analysis_{timestamp}.json"
+
+            analysis_data = {
+                'timestamp': timestamp,
+                'mixing_mode': mixing_mode,
+                'image_count': len(image_paths),
+                'image_paths': image_paths,
+                'user_prompt': style_prompt,
+                'analysis': result
+            }
+
+            with open(analysis_filename, 'w') as f:
+                json.dump(analysis_data, f, indent=2)
 
             return jsonify({
                 'success': True,
                 'mixing_mode': mixing_mode,
                 'image_count': len(image_paths),
                 'analysis': result,
-                'user_prompt': style_prompt
+                'user_prompt': style_prompt,
+                'saved_file': analysis_filename
             })
 
         except json.JSONDecodeError:
-            # If JSON parsing fails, return raw response
+            # If JSON parsing fails, return raw response and save it
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            analysis_filename = f"{config.local_output_dir}/images/style_analysis_{timestamp}.txt"
+
+            analysis_data = {
+                'timestamp': timestamp,
+                'mixing_mode': mixing_mode,
+                'image_count': len(image_paths),
+                'image_paths': image_paths,
+                'user_prompt': style_prompt,
+                'raw_response': response.text
+            }
+
+            with open(analysis_filename, 'w') as f:
+                f.write(f"Style Analysis - {timestamp}\n")
+                f.write("=" * 50 + "\n")
+                f.write(f"Mode: {mixing_mode}\n")
+                f.write(f"Images: {len(image_paths)}\n")
+                f.write(f"Prompt: {style_prompt}\n\n")
+                f.write("Response:\n")
+                f.write(response.text)
+
             return jsonify({
                 'success': True,
                 'mixing_mode': mixing_mode,
@@ -1578,7 +1658,8 @@ Please provide detailed guidance in JSON format:
                     'raw_response': response.text,
                     'note': 'Could not parse as JSON, showing raw response'
                 },
-                'user_prompt': style_prompt
+                'user_prompt': style_prompt,
+                'saved_file': analysis_filename
             })
 
     except Exception as e:

@@ -3235,11 +3235,67 @@
             element.className = 'result success';
             let html = '<strong>🎨 Style Mixing Complete!</strong><br><br>';
 
-            if (result.style_analysis) {
-                html += `<div style="background: #e8f5e8; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
-                html += `<h4 style="color: #2e7d32; margin-bottom: 10px;">📊 Style Analysis</h4>`;
-                html += `<div style="white-space: pre-wrap; line-height: 1.6;">${result.style_analysis}</div>`;
+            // Show saved file info
+            if (result.saved_file) {
+                html += `<div style="background: #d4edda; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #28a745;">`;
+                html += `<h4 style="color: #155724; margin-bottom: 10px;">💾 Analysis Saved</h4>`;
+                html += `<strong>File:</strong> ${result.saved_file.split('/').pop()}<br>`;
+                html += `<strong>Mode:</strong> ${result.mixing_mode}<br>`;
+                html += `<strong>Images:</strong> ${result.image_count}<br>`;
+                html += `<small style="color: #6c757d;">Analysis has been saved to the output/images directory</small>`;
                 html += `</div>`;
+            }
+
+            // Handle the analysis content
+            if (result.analysis) {
+                const analysis = result.analysis;
+
+                // Show structured analysis if available
+                if (analysis.individual_styles) {
+                    html += `<div style="background: #e8f5e8; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                    html += `<h4 style="color: #2e7d32; margin-bottom: 10px;">🔍 Individual Image Styles</h4>`;
+                    analysis.individual_styles.forEach((style, index) => {
+                        html += `<div style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px; border-left: 3px solid #4caf50;">`;
+                        html += `<strong>Image ${style.image_index || index + 1}:</strong><br>`;
+                        if (style.color_palette) html += `<strong>Colors:</strong> ${style.color_palette}<br>`;
+                        if (style.artistic_style) html += `<strong>Style:</strong> ${style.artistic_style}<br>`;
+                        if (style.composition) html += `<strong>Composition:</strong> ${style.composition}<br>`;
+                        if (style.mood) html += `<strong>Mood:</strong> ${style.mood}<br>`;
+                        html += `</div>`;
+                    });
+                    html += `</div>`;
+                }
+
+                // Show style combinations
+                if (analysis.style_combinations) {
+                    html += `<div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                    html += `<h4 style="color: #1976d2; margin-bottom: 10px;">🎨 Style Combinations</h4>`;
+                    const combo = analysis.style_combinations;
+                    if (combo.dominant_colors) html += `<strong>Dominant Colors:</strong> ${combo.dominant_colors.join(', ')}<br>`;
+                    if (combo.mixed_techniques) html += `<strong>Mixed Techniques:</strong> ${combo.mixed_techniques.join(', ')}<br>`;
+                    if (combo.unified_mood) html += `<strong>Unified Mood:</strong> ${combo.unified_mood}<br>`;
+                    if (combo.style_harmony) html += `<strong>Style Harmony:</strong> ${combo.style_harmony}<br>`;
+                    html += `</div>`;
+                }
+
+                // Show recommendations
+                if (analysis.recommendations) {
+                    html += `<div style="background: #fff3cd; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                    html += `<h4 style="color: #856404; margin-bottom: 10px;">💡 Recommendations</h4>`;
+                    const rec = analysis.recommendations;
+                    if (rec.best_combination) html += `<strong>Best Combination:</strong> ${rec.best_combination}<br>`;
+                    if (rec.suggested_prompt) html += `<strong>Suggested Prompt:</strong> ${rec.suggested_prompt}<br>`;
+                    if (rec.creative_directions) html += `<strong>Creative Directions:</strong> ${rec.creative_directions.join(', ')}<br>`;
+                    html += `</div>`;
+                }
+
+                // Show raw response if JSON parsing failed
+                if (analysis.raw_response) {
+                    html += `<div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0;">`;
+                    html += `<h4 style="color: #6c757d; margin-bottom: 10px;">📄 Full Response</h4>`;
+                    html += `<div style="white-space: pre-wrap; line-height: 1.6; font-family: monospace; font-size: 14px; background: white; padding: 10px; border-radius: 4px; max-height: 400px; overflow-y: auto;">${analysis.raw_response}</div>`;
+                    html += `</div>`;
+                }
             }
 
             if (result.combination_guide) {
