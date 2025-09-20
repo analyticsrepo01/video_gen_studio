@@ -450,7 +450,19 @@
 
         <!-- Image Editing Tab -->
         <div id="image-edit" class="tab-content">
-            <h2>Edit Image with AI</h2>
+            <h2>🖼️ Advanced Image Editing</h2>
+
+            <!-- Sub-tabs for Image Editing -->
+            <div class="sub-tabs">
+                <button class="sub-tab active" onclick="showSubTab('basic-editing')">Basic Editing</button>
+                <button class="sub-tab" onclick="showSubTab('subject-customization')">Subject Customization</button>
+                <button class="sub-tab" onclick="showSubTab('multi-image-generation')">Multi-Image Generation</button>
+                <button class="sub-tab" onclick="showSubTab('interleaved-generation')">Tutorial Generator</button>
+                <button class="sub-tab" onclick="showSubTab('chat-editing')">Chat Editing</button>
+            </div>
+
+            <!-- Basic Editing Sub-tab -->
+            <div id="basic-editing" class="sub-tab-content active">
             <div class="grid">
                 <div>
                     <form id="edit-form">
