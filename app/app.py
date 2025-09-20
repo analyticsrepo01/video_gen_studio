@@ -456,9 +456,14 @@ def extract_last_frame():
 def list_videos():
     try:
         videos = []
-        for file in os.listdir("output/videos"):
+        videos_dir = f"{config.local_output_dir}/videos"
+
+        # Create directory if it doesn't exist
+        os.makedirs(videos_dir, exist_ok=True)
+
+        for file in os.listdir(videos_dir):
             if file.endswith('.mp4'):
-                file_path = os.path.join("output/videos", file)
+                file_path = os.path.join(videos_dir, file)
                 file_size = os.path.getsize(file_path)
                 videos.append({
                     'name': file,
@@ -560,9 +565,14 @@ def upload_video():
 def list_images():
     try:
         images = []
-        for file in os.listdir("output/images"):
+        images_dir = f"{config.local_output_dir}/images"
+
+        # Create directory if it doesn't exist
+        os.makedirs(images_dir, exist_ok=True)
+
+        for file in os.listdir(images_dir):
             if file.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
-                file_path = os.path.join("output/images", file)
+                file_path = os.path.join(images_dir, file)
                 file_size = os.path.getsize(file_path)
                 images.append({
                     'name': file,
@@ -577,14 +587,14 @@ def list_images():
 @app.route('/preview/image/<path:filename>')
 def preview_image(filename):
     try:
-        return send_file(os.path.join("output/images", filename))
+        return send_file(os.path.join(f"{config.local_output_dir}/images", filename))
     except Exception as e:
         return jsonify({'error': str(e)}), 404
 
 @app.route('/preview/video/<path:filename>')
 def preview_video(filename):
     try:
-        return send_file(os.path.join("output/videos", filename))
+        return send_file(os.path.join(f"{config.local_output_dir}/videos", filename))
     except Exception as e:
         return jsonify({'error': str(e)}), 404
 
