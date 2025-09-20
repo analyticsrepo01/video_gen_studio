@@ -732,24 +732,54 @@ async def generate_video_async(prompt, aspect_ratio, negative_prompt='', resolut
         'prompt': prompt
     }
 
-async def generate_image_async(prompt):
+async def generate_image_async(prompt, candidate_count=1):
     try:
-        result = client.models.generate_images(
-            model="imagen-3.0-generate-002",
-            prompt=prompt,
+        # Use Gemini 2.5 Flash Image for enhanced generation
+        generate_content_config = types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+            candidate_count=candidate_count,
+            safety_settings=[
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                }
+            ]
+        )
+
+        # Use API client for gemini-2.5-flash-image-preview
+        response = api_client.models.generate_content(
+            model="gemini-2.5-flash-image-preview",
+            contents=prompt,
+            config=generate_content_config
         )
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        image_filename = f"{config.local_output_dir}/images/{prompt[:10]}_{timestamp}.png"
+        generated_images = []
 
-        # Save the image
-        result.generated_images[0].image.save(image_filename)
+        # Process all generated parts
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                file_index = len(generated_images)
+                file_extension = mimetypes.guess_extension(part.inline_data.mime_type) or '.png'
+                image_filename = f"{config.local_output_dir}/images/generated_{timestamp}_{file_index}{file_extension}"
 
-        return {
-            'success': True,
-            'local_path': image_filename,
-            'prompt': prompt
-        }
+                # Save the image
+                with open(image_filename, 'wb') as f:
+                    f.write(part.inline_data.data)
+
+                generated_images.append(image_filename)
+
+        if generated_images:
+            return {
+                'success': True,
+                'local_path': generated_images[0],  # Primary image
+                'all_images': generated_images,
+                'image_count': len(generated_images),
+                'prompt': prompt
+            }
+        else:
+            return {'error': 'No images were generated'}
+
     except Exception as e:
         return {'error': str(e)}
 
@@ -1667,6 +1697,455 @@ Please provide detailed guidance in JSON format:
         return jsonify({
             'error': f'Style mixing failed: {str(e)}'
         }), 500
+
+@app.route('/api/generate-from-multiple-images', methods=['POST'])
+def generate_from_multiple_images():
+    """Generate new images by combining elements from multiple reference images"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        image_paths = data.get('image_paths', data.get('images', []))
+        prompt = data.get('prompt', '')
+
+        if not image_paths:
+            return jsonify({'error': 'No images provided'}), 400
+
+        if not prompt:
+            return jsonify({'error': 'Prompt is required'}), 400
+
+        # Validate and prepare image parts
+        contents = []
+        for image_path in image_paths:
+            # Use the same path resolution logic as style mixing
+            possible_paths = [
+                image_path,
+                os.path.join(config.local_output_dir, image_path),
+                os.path.join(os.getcwd(), image_path),
+                os.path.join(os.getcwd(), config.local_output_dir, image_path),
+            ]
+
+            if image_path.startswith('output/'):
+                relative_path = image_path[7:]
+                possible_paths.extend([
+                    relative_path,
+                    os.path.join(config.local_output_dir, relative_path),
+                    os.path.join(os.getcwd(), config.local_output_dir, relative_path),
+                ])
+
+            full_path = None
+            for try_path in possible_paths:
+                if os.path.exists(try_path):
+                    full_path = try_path
+                    break
+
+            if not full_path:
+                return jsonify({'error': f'Image not found: {image_path}'}), 404
+
+            # Read and add image to contents
+            with open(full_path, 'rb') as f:
+                image_data = f.read()
+
+            file_extension = full_path.split('.')[-1].lower()
+            mime_type = f"image/{file_extension}"
+            if file_extension == 'jpg':
+                mime_type = "image/jpeg"
+
+            contents.append(types.Part.from_bytes(
+                data=image_data,
+                mime_type=mime_type
+            ))
+
+        # Add the text prompt
+        contents.append(prompt)
+
+        # Generate content config
+        generate_content_config = types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+            candidate_count=1,
+            safety_settings=[
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                }
+            ]
+        )
+
+        # Use API client for gemini-2.5-flash-image-preview
+        response = api_client.models.generate_content(
+            model="gemini-2.5-flash-image-preview",
+            contents=contents,
+            config=generate_content_config
+        )
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        generated_images = []
+        description = ""
+
+        # Process response parts
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                file_index = len(generated_images)
+                file_extension = mimetypes.guess_extension(part.inline_data.mime_type) or '.png'
+                image_filename = f"{config.local_output_dir}/images/multi_ref_{timestamp}_{file_index}{file_extension}"
+
+                with open(image_filename, 'wb') as f:
+                    f.write(part.inline_data.data)
+
+                generated_images.append(image_filename)
+            elif part.text:
+                description += part.text
+
+        return jsonify({
+            'success': True,
+            'generated_images': generated_images,
+            'image_count': len(generated_images),
+            'description': description,
+            'prompt': prompt,
+            'source_images': len(image_paths)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/subject-customization', methods=['POST'])
+def subject_customization():
+    """Create variations of a subject in different styles or settings"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        image_path = data.get('image_path')
+        customization_prompt = data.get('prompt', '')
+
+        if not image_path:
+            return jsonify({'error': 'Image path is required'}), 400
+
+        if not customization_prompt:
+            return jsonify({'error': 'Customization prompt is required'}), 400
+
+        # Find the image file using same logic as other functions
+        possible_paths = [
+            image_path,
+            os.path.join(config.local_output_dir, image_path),
+            os.path.join(os.getcwd(), image_path),
+            os.path.join(os.getcwd(), config.local_output_dir, image_path),
+        ]
+
+        if image_path.startswith('output/'):
+            relative_path = image_path[7:]
+            possible_paths.extend([
+                relative_path,
+                os.path.join(config.local_output_dir, relative_path),
+                os.path.join(os.getcwd(), config.local_output_dir, relative_path),
+            ])
+
+        full_path = None
+        for try_path in possible_paths:
+            if os.path.exists(try_path):
+                full_path = try_path
+                break
+
+        if not full_path:
+            return jsonify({'error': f'Image not found: {image_path}'}), 404
+
+        # Read the image
+        with open(full_path, 'rb') as f:
+            image_data = f.read()
+
+        file_extension = full_path.split('.')[-1].lower()
+        mime_type = f"image/{file_extension}"
+        if file_extension == 'jpg':
+            mime_type = "image/jpeg"
+
+        # Create contents
+        contents = [
+            types.Part.from_bytes(data=image_data, mime_type=mime_type),
+            customization_prompt
+        ]
+
+        # Generate content config
+        generate_content_config = types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+            candidate_count=1,
+            safety_settings=[
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                }
+            ]
+        )
+
+        # Generate the customized images
+        response = api_client.models.generate_content(
+            model="gemini-2.5-flash-image-preview",
+            contents=contents,
+            config=generate_content_config
+        )
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        generated_images = []
+        description = ""
+
+        # Process response
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                file_index = len(generated_images)
+                file_extension = mimetypes.guess_extension(part.inline_data.mime_type) or '.png'
+                image_filename = f"{config.local_output_dir}/images/custom_{timestamp}_{file_index}{file_extension}"
+
+                with open(image_filename, 'wb') as f:
+                    f.write(part.inline_data.data)
+
+                generated_images.append(image_filename)
+            elif part.text:
+                description += part.text
+
+        return jsonify({
+            'success': True,
+            'generated_images': generated_images,
+            'image_count': len(generated_images),
+            'description': description,
+            'prompt': customization_prompt,
+            'original_image': image_path
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate-interleaved', methods=['POST'])
+def generate_interleaved():
+    """Generate interleaved text and images for tutorials or step-by-step content"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        prompt = data.get('prompt', '')
+
+        if not prompt:
+            return jsonify({'error': 'Prompt is required'}), 400
+
+        # Generate content config
+        generate_content_config = types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+            candidate_count=1,
+            safety_settings=[
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+                }
+            ]
+        )
+
+        # Generate interleaved content
+        response = api_client.models.generate_content(
+            model="gemini-2.5-flash-image-preview",
+            contents=prompt,
+            config=generate_content_config
+        )
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        generated_images = []
+        text_parts = []
+        content_sequence = []
+
+        # Process response in sequence
+        for i, part in enumerate(response.candidates[0].content.parts):
+            if part.text:
+                text_parts.append(part.text)
+                content_sequence.append({'type': 'text', 'content': part.text, 'index': i})
+            elif part.inline_data and part.inline_data.data:
+                file_index = len(generated_images)
+                file_extension = mimetypes.guess_extension(part.inline_data.mime_type) or '.png'
+                image_filename = f"{config.local_output_dir}/images/interleaved_{timestamp}_{file_index}{file_extension}"
+
+                with open(image_filename, 'wb') as f:
+                    f.write(part.inline_data.data)
+
+                generated_images.append(image_filename)
+                content_sequence.append({'type': 'image', 'content': image_filename, 'index': i})
+
+        return jsonify({
+            'success': True,
+            'generated_images': generated_images,
+            'text_parts': text_parts,
+            'content_sequence': content_sequence,
+            'image_count': len(generated_images),
+            'text_count': len(text_parts),
+            'prompt': prompt
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Global chat sessions storage (in production, use proper session management or database)
+chat_sessions = {}
+
+@app.route('/api/start-chat-editing', methods=['POST'])
+def start_chat_editing():
+    """Start a new conversational image editing session"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        session_id = f"chat_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        # Create a new chat session
+        chat = api_client.chats.create(model="gemini-2.5-flash-image-preview")
+        chat_sessions[session_id] = chat
+
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'message': 'Chat session started. You can now send images and editing requests.'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/chat-edit-image', methods=['POST'])
+def chat_edit_image():
+    """Send a message to edit an image in an ongoing chat session"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        session_id = data.get('session_id')
+        prompt = data.get('prompt', '')
+        image_path = data.get('image_path')
+
+        if not session_id:
+            return jsonify({'error': 'Session ID is required'}), 400
+
+        if not prompt:
+            return jsonify({'error': 'Prompt is required'}), 400
+
+        if session_id not in chat_sessions:
+            return jsonify({'error': 'Chat session not found. Please start a new session.'}), 404
+
+        chat = chat_sessions[session_id]
+
+        # Prepare message contents
+        message_contents = []
+
+        # Add image if provided
+        if image_path:
+            # Find the image file using same logic as other functions
+            possible_paths = [
+                image_path,
+                os.path.join(config.local_output_dir, image_path),
+                os.path.join(os.getcwd(), image_path),
+                os.path.join(os.getcwd(), config.local_output_dir, image_path),
+            ]
+
+            if image_path.startswith('output/'):
+                relative_path = image_path[7:]
+                possible_paths.extend([
+                    relative_path,
+                    os.path.join(config.local_output_dir, relative_path),
+                    os.path.join(os.getcwd(), config.local_output_dir, relative_path),
+                ])
+
+            full_path = None
+            for try_path in possible_paths:
+                if os.path.exists(try_path):
+                    full_path = try_path
+                    break
+
+            if not full_path:
+                return jsonify({'error': f'Image not found: {image_path}'}), 404
+
+            # Read the image
+            with open(full_path, 'rb') as f:
+                image_data = f.read()
+
+            file_extension = full_path.split('.')[-1].lower()
+            mime_type = f"image/{file_extension}"
+            if file_extension == 'jpg':
+                mime_type = "image/jpeg"
+
+            message_contents.append(types.Part.from_bytes(data=image_data, mime_type=mime_type))
+
+        # Add the text prompt
+        message_contents.append(prompt)
+
+        # Send message to chat
+        response = chat.send_message(
+            message=message_contents,
+            config=types.GenerateContentConfig(
+                response_modalities=["TEXT", "IMAGE"],
+            )
+        )
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        generated_images = []
+        description = ""
+
+        # Process response
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                file_index = len(generated_images)
+                file_extension = mimetypes.guess_extension(part.inline_data.mime_type) or '.png'
+                image_filename = f"{config.local_output_dir}/images/chat_edit_{session_id}_{timestamp}_{file_index}{file_extension}"
+
+                with open(image_filename, 'wb') as f:
+                    f.write(part.inline_data.data)
+
+                generated_images.append(image_filename)
+            elif part.text:
+                description += part.text
+
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'generated_images': generated_images,
+            'image_count': len(generated_images),
+            'description': description,
+            'prompt': prompt,
+            'original_image': image_path
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/end-chat-editing/<session_id>', methods=['DELETE'])
+def end_chat_editing(session_id):
+    """End a conversational image editing session"""
+    try:
+        if session_id in chat_sessions:
+            del chat_sessions[session_id]
+            return jsonify({
+                'success': True,
+                'message': 'Chat session ended successfully'
+            })
+        else:
+            return jsonify({'error': 'Chat session not found'}), 404
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/list-chat-sessions', methods=['GET'])
+def list_chat_sessions():
+    """List all active chat sessions"""
+    try:
+        return jsonify({
+            'success': True,
+            'sessions': list(chat_sessions.keys()),
+            'session_count': len(chat_sessions)
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     import socket
