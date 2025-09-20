@@ -1534,13 +1534,12 @@ Please provide detailed guidance in JSON format:
         # Add the text prompt (following official examples)
         contents.append(prompt)
 
-        # Call Gemini API with config
+        # Call Gemini API with config (following the exact format from your example)
         generate_content_config = types.GenerateContentConfig(
             response_modalities=["TEXT"],
             candidate_count=1,
             safety_settings=[
                 {
-                    "method": "PROBABILITY",
                     "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
                     "threshold": "BLOCK_MEDIUM_AND_ABOVE"
                 }
