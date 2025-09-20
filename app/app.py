@@ -1334,9 +1334,10 @@ def mix_image_styles():
         if not data:
             return jsonify({'error': 'No data provided'}), 400
 
-        image_paths = data.get('image_paths', [])
-        style_prompt = data.get('style_prompt', '')
-        mixing_mode = data.get('mixing_mode', 'analyze')
+        # Support both 'image_paths' and 'images' for compatibility
+        image_paths = data.get('image_paths', data.get('images', []))
+        style_prompt = data.get('style_prompt', data.get('prompt', ''))
+        mixing_mode = data.get('mixing_mode', data.get('mode', 'analyze'))
 
         if not image_paths:
             return jsonify({'error': 'No images provided'}), 400
@@ -1346,7 +1347,12 @@ def mix_image_styles():
 
         # Validate that all image files exist
         for image_path in image_paths:
-            full_path = os.path.join(config.local_output_dir, image_path)
+            # Handle both full paths and relative paths
+            if os.path.isabs(image_path):
+                full_path = image_path
+            else:
+                full_path = os.path.join(config.local_output_dir, image_path)
+
             if not os.path.exists(full_path):
                 return jsonify({'error': f'Image not found: {image_path}'}), 404
 
@@ -1355,13 +1361,24 @@ def mix_image_styles():
 
         # Add images to the content
         for i, image_path in enumerate(image_paths):
-            full_path = os.path.join(config.local_output_dir, image_path)
+            # Handle both full paths and relative paths
+            if os.path.isabs(image_path):
+                full_path = image_path
+            else:
+                full_path = os.path.join(config.local_output_dir, image_path)
+
             with open(full_path, 'rb') as f:
                 image_data = f.read()
 
+            # Get file extension from the actual file path
+            file_extension = full_path.split('.')[-1].lower()
+            mime_type = f"image/{file_extension}"
+            if file_extension == 'jpg':
+                mime_type = "image/jpeg"
+
             contents.append(types.Part.from_bytes(
                 data=image_data,
-                mime_type=f"image/{image_path.split('.')[-1].lower()}"
+                mime_type=mime_type
             ))
 
         # Create the analysis prompt based on mixing mode
