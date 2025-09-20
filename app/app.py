@@ -1350,7 +1350,11 @@ def mix_image_styles():
             # Handle both full paths and relative paths
             if os.path.isabs(image_path):
                 full_path = image_path
+            elif image_path.startswith(config.local_output_dir + '/'):
+                # Path already includes output directory
+                full_path = image_path
             else:
+                # Relative path needs to be joined with output directory
                 full_path = os.path.join(config.local_output_dir, image_path)
 
             if not os.path.exists(full_path):
@@ -1364,7 +1368,11 @@ def mix_image_styles():
             # Handle both full paths and relative paths
             if os.path.isabs(image_path):
                 full_path = image_path
+            elif image_path.startswith(config.local_output_dir + '/'):
+                # Path already includes output directory
+                full_path = image_path
             else:
+                # Relative path needs to be joined with output directory
                 full_path = os.path.join(config.local_output_dir, image_path)
 
             with open(full_path, 'rb') as f:
