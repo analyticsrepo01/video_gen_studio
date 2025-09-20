@@ -1347,15 +1347,25 @@ def mix_image_styles():
 
         # Validate that all image files exist
         for image_path in image_paths:
+            # Debug logging
+            print(f"🔍 Processing image_path: {image_path}")
+            print(f"🔍 config.local_output_dir: {config.local_output_dir}")
+
             # Handle both full paths and relative paths
             if os.path.isabs(image_path):
                 full_path = image_path
-            elif image_path.startswith(config.local_output_dir + '/'):
+                print(f"🔍 Using absolute path: {full_path}")
+            elif image_path.startswith('output/'):
                 # Path already includes output directory
                 full_path = image_path
+                print(f"🔍 Using output-prefixed path: {full_path}")
             else:
                 # Relative path needs to be joined with output directory
                 full_path = os.path.join(config.local_output_dir, image_path)
+                print(f"🔍 Joined path: {full_path}")
+
+            print(f"🔍 Final full_path: {full_path}")
+            print(f"🔍 File exists: {os.path.exists(full_path)}")
 
             if not os.path.exists(full_path):
                 return jsonify({'error': f'Image not found: {image_path}'}), 404
@@ -1368,7 +1378,7 @@ def mix_image_styles():
             # Handle both full paths and relative paths
             if os.path.isabs(image_path):
                 full_path = image_path
-            elif image_path.startswith(config.local_output_dir + '/'):
+            elif image_path.startswith('output/'):
                 # Path already includes output directory
                 full_path = image_path
             else:
